@@ -1,0 +1,1214 @@
+---
+title: "Forecasting 2020 Governor Races"
+output: 
+  html_document: 
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+    df_print: kable
+    highlight: pygments
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls(all.names = TRUE)) 
+```
+
+# Settings
+
+```{r message=FALSE}
+library(tidyverse, quietly = TRUE)
+library(ggdist, quietly = TRUE)
+library(jsonlite, quietly = TRUE)
+library(magrittr, quietly = TRUE)
+library(boot, quietly = TRUE)
+library(ggpubr, quietly = TRUE)
+
+library(readxl, quietly = TRUE) # read data
+library(lubridate, quietly = TRUE) # date
+library(parsedate, quietly = TRUE)
+library(readr, quietly = TRUE) # csv
+library(usdata, quietly = TRUE) # state names
+library(RColorBrewer, quietly = TRUE)
+library(rlang, quietly = TRUE)
+
+library(brms, quietly = TRUE)
+library(parallel, quietly = TRUE)
+library(rstan, quietly = TRUE)
+library(tidybayes, quietly = TRUE)
+library(cmdstanr, quietly = TRUE)
+library(bayesplot, quietly = TRUE)
+library(vecsets, quietly = TRUE)
+
+FLAG_RUN_MODEL <- T
+
+options(max.print = 10000) 
+```
+
+
+```{r}
+
+date <- Sys.Date()
+election_day <- ymd('2022-11-08')  
+
+target_day <- min(date, election_day)
+
+path <- paste0('../../EVA-midterm/midterm-web/public/forecasts/', date)
+
+dir.create(path)
+
+```
+
+
+# Theme set
+
+```{r}
+theme_set(theme_ggdist() + 
+          theme(strip.background = element_blank(),
+                panel.spacing = unit(2, "lines"),
+                plot.title = element_text(hjust = .5)))
+
+set.seed(1001)
+
+```
+
+# Load data from fivethirtyeight
+
+```{r}
+
+today <- Sys.Date()
+
+current_polls <- read_csv('https://projects.fivethirtyeight.com/polls/data/governor_polls.csv')
+
+# Ratings from Cook report
+current_status <- read_xlsx('./data/June_29.xlsx', sheet = 'June_29_states') %>% 
+  rename(state_full = State) %>% 
+  filter(state_full != 'Northern Mariana Islands') %>% 
+  mutate(state = state2abbr(state_full))
+
+current_rate <- read_xlsx('./data/June_29.xlsx', sheet = 'June_29_rate') %>% 
+  rename(state_full = State) %>% 
+  mutate(state = state2abbr(state_full))
+
+head(current_polls)
+head(current_status)
+head(current_rate)
+head(current_polls %>% 
+  mutate(t = ymd(parse_date(start_date))))
+```
+
+## data clean
+
+```{r}
+
+df_polls_0 <- current_polls %>%
+  filter(cycle == 2022 &
+         stage == 'general') %>% 
+  rename(state_full = state) %>%
+  mutate(
+         pct = pct / 100,
+         # state name to abbr
+         state = state2abbr(state_full),
+         # clean up date
+         start_date = mdy(start_date),
+         end_date =  mdy(end_date)) %>% 
+  filter(start_date >= ymd('2020-12-01'))
+
+
+min_date = min(df_polls_0$start_date)
+
+df_polls_1 <- df_polls_0 %>%
+         mutate(date = round((start_date  - min_date + end_date  - min_date) / 2),
+         # clean up
+         methodology =  replace_na(methodology, 'unknown'),
+         fte_grade =  replace_na(fte_grade, 'unknown')) %>% 
+  dplyr::select(
+    date,
+    state,
+    answer,
+    candidate_name, 
+    party,
+    sample_size,
+    pct,
+    poll_id,
+    pollster_id,
+    question_id,
+    pollster,
+    display_name,
+    fte_grade,
+    methodology,
+    population,
+    state_full,
+    start_date,
+    end_date,
+    url
+  )
+
+
+
+max_date = today
+
+head(df_polls_1, n = 10)
+length(unique(df_polls_1$state))
+```
+
+
+
+```{r}
+# transform cook report to get incumbency and the last election pct
+current_status_short <-
+  current_status %>% 
+  rename(party = Party) %>% 
+  mutate(incumbent_party = recode(party, 'Democratic' = 'DEM', 'Republican' = 'REP', 'DFL' = 'DFL')) %>% 
+  mutate(last_dem = last_dem / (last_dem + last_rep) ) 
+  
+# attach cook report to polling data  
+df_polls <-
+  df_polls_1 %>% 
+  left_join(current_status_short %>% dplyr::select(state, Status, last_dem, incumbent_party), by = 'state') %>% 
+  left_join(current_rate %>% dplyr::select(state, Cook), by = 'state') %>% 
+  rename(incumbent_status = Status) %>% 
+  filter(!is.na(state))
+
+
+```
+
+
+get a sense of the polls
+
+```{r fig.height=15, fig.width=15}
+
+df_polls %>% 
+  ggplot(aes(x = start_date, y = pct)) +
+  geom_point(aes(color = party)) + 
+  scale_y_continuous(limits = c(0, 1)) + 
+  scale_x_date(date_labels = '%y-%m', limits = c(as.Date(min_date), today)) + 
+  geom_label(x = today, y = .8, aes(label = Cook, fill = Cook), size = 2.5) +
+  facet_wrap(. ~ state, ncol = 5, scales = 'free') 
+
+```
+
+
+## clean up and keep two party parts
+
+We assume that all Democrat candidates' ballots will go to the final Democrat candidate, and all republicans' tickets will go to the final Republican candidate. This is an assumption that may not always be true...
+
+We also discard other party candidates and their ballots. In some states like Alaska and NM, the third-party candidate is quite compelling...
+
+`TODO`: question_id vs, poll_id: a poll may have multiple questions... Now I assume that each question is a small poll.
+
+```{r}
+
+# https://www.nytimes.com/interactive/2022/us/elections/midterm-elections-calendar.html
+# useful
+
+df_polls_two_party <- df_polls %>% 
+  # This question 148891 asks REP vs IND
+  filter(question_id != 148891) %>%
+  filter(state != 'AK') %>% 
+  group_by(question_id, party) %>% 
+  summarise(grouped_pct = sum(pct), 
+    date,
+    state,
+    sample_size,
+    poll_id,
+    pollster_id,
+    question_id,
+    pollster,
+    display_name,
+    fte_grade,
+    methodology,
+    population,
+    state_full,
+    start_date,
+    incumbent_status,
+    incumbent_party,
+    last_dem,
+    url
+  ) %>%  
+  distinct() %>% 
+  spread(
+    key = party, 
+    value = grouped_pct
+  ) %>% 
+  mutate(
+         n_dem = DEM * sample_size,
+         n_rep = REP * sample_size,
+         n_two_party =  round(n_dem + n_rep),
+         dem_pct = n_dem / n_two_party,
+         rep_pct = 1 - dem_pct,
+         dem_num = round(dem_pct * n_two_party),
+         date_index = round(as.numeric(date)),
+         question_id = as.factor(question_id),
+         poll_id = as.factor(poll_id),
+         pollster_id = as.factor(pollster_id),
+         last_dem_logit = logit(last_dem),
+         methodology_recode = recode(
+           methodology,
+           "Online" = "Online",
+           "Live Phone" = "Live Phone",
+           "IVR" = "IVR",
+           "unknown" = "unknown", 
+           .default = "mixed"
+         ),
+         methodology_recode = as.factor(methodology_recode),
+         population = as.factor(population)
+         ) %>% 
+  dplyr::select(n_two_party, 
+                  dem_pct, rep_pct, 
+                  dem_num, date_index, 
+                  question_id, 
+                  poll_id, 
+                  pollster_id, 
+                  pollster,
+                  display_name,
+                  methodology_recode,
+                  population,
+                  date, 
+                  start_date,
+                  state,
+                  url,
+                  incumbent_party,
+                  last_dem) %>% 
+  arrange(date) 
+
+
+states <- unique(df_polls_two_party$state)
+
+if(nrow(na.omit(df_polls_two_party)) != nrow(df_polls_two_party)) quit(save="ask")
+```
+
+## look at the data after clean-up
+
+```{r fig.height=10, fig.width=15}
+df_polls_two_party %>% 
+  ggplot() +
+  geom_line(mapping = aes(x = start_date, y = dem_pct), color = 'steelblue') + 
+  geom_point(mapping = aes(x = start_date, y = dem_pct), size = 1, color = 'steelblue') + 
+  geom_line(mapping = aes(x = start_date, y = rep_pct), color = 'salmon') +
+  geom_point(mapping = aes(x = start_date, y = rep_pct), size = 1, color = 'salmon') + 
+  geom_hline(yintercept = .5, color = 'gray', linetype = 'dashed') + 
+  scale_y_continuous(limits = c(0, 1)) + 
+  scale_x_date(date_labels = '%y-%m', limits = c(as.Date(min_date), today)) + 
+  facet_wrap(. ~ state, ncol = 5, scales = 'free') 
+```
+
+```{r}
+df_polls_two_party %>%  
+  group_by(state) %>% 
+  summarise(n())
+```
+
+
+# Modeling preparation
+
+```{r include=FALSE}
+MCMC_SETTINGS <- list(
+  N_ITER = 15000,
+  N_WARMUP = 5000,
+  N_THIN = 2,
+  N_CHAINS = 4,
+  DELTA = 0.9,
+  TREE_DEPTH = 15,
+  SEED = 1234
+)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+
+# Model 
+
+## stan code
+
+```{r}
+m5_stan ="
+data{
+  int N_questions;   
+  int N_polls;    
+  int N_days;   
+  int N_states;  
+  int N_pollsters;    
+  int N_population;
+  int N_methods; 
+  
+  array[N_questions] int<lower = 1, upper = N_states> state_index; // State index
+  array[N_questions] int<lower = 1, upper = N_days>  day_state_index;   // Day index
+  
+  array[N_questions] int<lower = 1, upper = N_polls>  poll_index; // poll index
+  array[N_questions] int<lower = 1, upper = N_pollsters> pollster_index; // which pollster
+  array[N_questions] int<lower = 1, upper = N_methods> methods_index;   // which polling method
+  array[N_questions] int<lower = 1, upper = N_population> population_index;   // which method
+
+  vector[N_states] last_dem_logit;   // which incumbency party in that state?
+ 
+  array[N_questions] int dem_num;
+  array[N_questions] int n_two_party;
+  
+  real state_day_sigma_scaler;
+  real states_poll_bias_scaler;
+  real sigma_scaler_pollster;
+  real sigma_scaler;
+}
+
+parameters {
+  
+  vector[N_pollsters] mu_pollster; 
+  vector[N_methods] mu_methods; 
+  vector[N_population] mu_population; 
+  
+  vector[N_polls] poll_noise;
+  vector[N_states] polling_bias_states;  
+  
+  matrix[N_states, N_days] err;
+  vector[N_states] raw_mu_first_day;
+
+}
+
+transformed parameters {
+ 
+
+  matrix[N_states,N_days] mu; 
+  mu[:, 1] = raw_mu_first_day;
+
+  for (t in 2:N_days) {
+    mu[:, t] = mu[:,  t - 1] + err[:, t] * state_day_sigma_scaler;
+  }
+
+
+
+ vector[N_questions] logit_dem_pct;  
+
+ for (i in 1:N_questions){
+   logit_dem_pct[i] =
+    mu[state_index[i], day_state_index[i]] + 
+    mu_pollster[pollster_index[i]] * sigma_scaler_pollster + 
+   // mu_incumbent_party[incumbent_party_index[state_index[i]]] * sigma_scaler + 
+    mu_methods[methods_index[i]] * sigma_scaler +
+    mu_population[population_index[i]] * sigma_scaler + 
+    polling_bias_states[state_index[i]] * states_poll_bias_scaler + 
+    poll_noise[poll_index[i]] * sigma_scaler;
+ }
+
+}
+
+model {
+
+  mu_pollster ~ std_normal();
+  //mu_incumbent_party ~ std_normal();
+  mu_methods ~ std_normal();
+  mu_population ~ std_normal();
+  poll_noise ~  std_normal();
+  polling_bias_states ~  std_normal();
+  raw_mu_first_day ~ normal(last_dem_logit, .3); 
+  
+  to_vector(err) ~  std_normal();
+
+  dem_num ~ binomial_logit(n_two_party, logit_dem_pct);
+  
+}
+
+//generated quantities {
+ // matrix[N_states, N_days] prediction;
+ // prediction = mu;
+ // for (t in 1:N_days){
+ //   prediction[:, t] = mu[:, t] + last_dem_logit;
+ // }
+//}
+"
+
+if(exists('out')) rm(out)
+if(exists('df_prediction')) rm(df_prediction)
+if(exists('prediction')) rm(prediction)
+if(exists('df_mu_methods')) rm(df_mu_methods)
+if(exists('df_poll_noise')) rm(df_poll_noise)
+
+f <- write_stan_file(code = m5_stan, dir = 'stan', basename = 'm5.stan')
+```
+
+## transform data
+
+```{r}
+df_polls_two_party <-
+  df_polls_two_party %>% 
+  ungroup() %>% 
+  mutate(state_index = as.numeric(as.factor(state)),
+         day_state_index = as.integer(date) + 1,
+         day = min_date + date, 
+         pollster_index = as.numeric(as.factor(pollster_id)),
+         poll_index = as.numeric(as.factor(poll_id)),
+         methods_index = as.numeric(as.factor(methodology_recode)),
+         population_index = as.numeric(as.factor(population)),
+         incumbent_party_index = as.numeric(as.factor(incumbent_party))
+         )
+
+states <- levels(as.factor(df_polls_two_party$state))
+```
+
+
+## pass data to stan
+
+
+```{r}
+
+pulled_incumbent_party_index <- df_polls_two_party %>% 
+                                dplyr::select(c(state_index, incumbent_party_index)) %>% 
+                                arrange(state_index) %>% distinct() %>% pull(incumbent_party_index)
+
+
+pulled_last_dem_logit <- logit(df_polls_two_party %>% 
+                                dplyr::select(c(state_index, last_dem)) %>% 
+                                arrange(state_index) %>% distinct() %>% pull(last_dem))
+
+sigma_scaler = 0.04 
+sigma_scaler_pollster = 0.06
+
+state_day_sigma_scaler = 0.01655
+# 0.0165 from the eco
+# 0.032 if we want to double it
+
+states_poll_bias_scaler = .076#.0.15 
+# result in +- 0.07585401
+# 0.15 if we want to double it
+# 0.2 if we want to make 20
+
+m5_data = list( 
+  sigma_scaler = sigma_scaler,
+  sigma_scaler_pollster = sigma_scaler_pollster,
+  state_day_sigma_scaler = state_day_sigma_scaler, # sqrt(diag(ss_cov))
+  states_poll_bias_scaler = states_poll_bias_scaler,
+#states_sd_scaler = states_sigma_scaler,
+  # states_sd_scaler = sd_rough$sd_scaler,
+  #states_avg_sigma = states_avg_sigma,
+  N_questions = length(unique(df_polls_two_party$question_id)),
+  N_polls = length(unique(df_polls_two_party$poll_index)),
+  N_days = as.integer(round(difftime(election_day, min_date))) + 1,
+  N_states = length(unique(df_polls_two_party$state_index)),
+  N_pollsters = length(unique(df_polls_two_party$pollster_index)),
+  N_population = length(unique(df_polls_two_party$population_index)),
+  N_methods = length(unique(df_polls_two_party$methods_index)),
+  N_incumbent_party = length(unique(df_polls_two_party$incumbent_party)),
+    
+  state_index = df_polls_two_party$state_index,
+  day_state_index = df_polls_two_party$day_state_index,
+  pollster_index = df_polls_two_party$pollster_index,
+  poll_index = df_polls_two_party$poll_index,
+  methods_index = df_polls_two_party$methods_index,
+  population_index = df_polls_two_party$population_index,
+  incumbent_party_index = pulled_incumbent_party_index,
+    
+  dem_num = df_polls_two_party$dem_num,
+  n_two_party = df_polls_two_party$n_two_party,
+  last_dem_logit = pulled_last_dem_logit
+)
+  
+
+```
+
+## model fit
+
+
+```{r}
+
+if (FLAG_RUN_MODEL) {
+  
+   if (file.exists("stan/m5")) {
+      file.remove("stan/m5")
+   }
+  
+  m5 <- cmdstanr::cmdstan_model('stan/m5.stan',
+                            compile = TRUE,
+                            force = TRUE
+                            #force_recompile = TRUE,
+                            #https://rdrr.io/github/stan-dev/cmdstanr/src/R/model.R
+                            #stanc_options = list("auto-format")
+                           )
+  
+  print(m5)
+  #print(m5_data)
+  
+  fit <- m5$sample(
+    data = m5_data,
+    seed = 99,
+    parallel_chains = MCMC_SETTINGS$N_CHAINS, 
+    chains = MCMC_SETTINGS$N_CHAINS,
+    iter_warmup = MCMC_SETTINGS$N_WARMUP,
+    iter_sampling = MCMC_SETTINGS$N_WARMUP,
+    refresh = MCMC_SETTINGS$N_WARMUP * .2,
+    max_treedepth = MCMC_SETTINGS$TREE_DEPTH,
+    adapt_delta = MCMC_SETTINGS$DELTA,
+    init = 0
+  )
+  
+  fit$cmdstan_diagnose()
+  #fit$cmdstan_summary()
+  
+
+  out <- rstan::read_stan_csv(fit$output_files())
+  
+  
+  # save model
+  write_rds(out, sprintf('rds/out_%s.rds', target_day), compress = 'gz')
+  
+  write_rds(fit, sprintf('rds/fit_%s.rds', target_day), compress = 'gz')
+  
+  rm(fit)
+  gc(full = T)
+  
+} else {
+  out <- read_rds(sprintf('rds/out_%s.rds', target_day))
+}
+```
+
+
+## posterior
+
+```{r}
+
+prediction <-
+  rstan::extract(out, pars = "mu")[[1]]
+```
+
+```{r}
+nX <- MCMC_SETTINGS$N_CHAINS * MCMC_SETTINGS$N_WARMUP
+nY <- m5_data$N_states
+nZ <- m5_data$N_days
+
+dim(prediction) <- nX * nY * nZ
+
+df_prediction <- tibble(prediction = inv.logit(prediction), 
+                   .draw = rep(1:nX, times = nY * nZ),
+                   day_index = rep(1:nZ, each = nY * nX),
+                   state_index = rep(rep(1:nY, each = nX), times = nZ),
+                   day = min_date + day_index - 1,
+                   state = states[state_index]
+                 )
+
+```
+
+
+## current day
+
+```{r}
+prediction_summary <-
+  df_prediction %>% 
+    group_by(day, state) %>% 
+    median_qi(prediction) %>% 
+    mutate(diff = .upper - .lower)
+```
+
+
+
+```{r fig.height=15, fig.width=15}
+
+prediction_summary %>% 
+  ggplot() + 
+    geom_lineribbon(
+      aes(
+      x = day,
+      y = prediction,
+      ymin = .lower,
+      ymax = .upper
+    ),
+    fill = 'lightgray',
+    size = 1
+    ) +
+  geom_point(
+    df_polls_two_party,
+    mapping = aes(x = day, y = dem_pct)
+  ) + 
+  geom_hline(df_polls_two_party %>% select(state, last_dem) %>% distinct(),
+             mapping = aes(yintercept = last_dem), linetype = 'dotted', color = 'purple', size = .8) + 
+  geom_vline(xintercept = today, linetype = 'dotted') + 
+  geom_hline(yintercept = 0.5, linetype = 'dotted', size = .8) + 
+  facet_wrap(state ~ ., ncol = 5, scale = 'free_x')
+```
+
+
+
+```{r fig.height=6, fig.width=5}
+
+today_prediction <- df_prediction %>%
+  filter(day == today) %>% 
+  rename(dem = prediction) %>% 
+  mutate(rep = 1 - dem) %>% 
+  group_by(state) 
+
+today_prediction %>% 
+  mean_qi(dem, rep, .width = .95) 
+
+today_prediction %>% 
+  mean_qi(dem, rep, .width = .8) %>%
+  merge(today_prediction %>% 
+      summarise(prob.dem = mean(dem > .5), prob.rep = mean(1 - dem > .5))) %>% 
+  rowwise() %>% 
+  mutate(lower = dem.lower,
+         lower.end = max(dem.lower, min(.5, dem.upper)),
+         upper= dem.upper,
+         upper.start = min(dem.upper, max(.5, dem.lower)),
+         prob = max(prob.dem, prob.rep),
+         diff_prob = abs(prob - .5)) %>%
+  arrange(desc(diff_prob)) %>% 
+  mutate(state = factor(state, unique(state))) %>% 
+  ggplot() + 
+  geom_segment(aes(x = lower, xend = lower.end, y = state, yend = state), size = 4, color = 'salmon') +
+  geom_segment(aes(x = upper.start, xend = upper, y = state, yend = state), size = 4, color = 'steelblue4') +
+  geom_vline(xintercept = c(.25, .375, .5, .625, .75), linetype='dotted') +
+  geom_text(x = .8, aes(y = state, label = prob)) + 
+  scale_x_continuous(limits = c(.24, .8), breaks = c(.25, .375, .5, .625, .75), labels = c('+50', '+25', '0', '+25', '+50'))
+
+```
+
+
+## other parameters
+```{r}
+# quit(save="ask")
+polling_bias_states <-
+  rstan::extract(out, pars = "polling_bias_states")[[1]]
+
+dim(polling_bias_states) <- nX * m5_data$N_states
+
+df_polling_bias_states <- tibble(
+         posterior = polling_bias_states,
+         .draw = rep(1:nX, times =  m5_data$N_states),
+         state_index = rep(1: m5_data$N_states, each =  nX),
+         state = states[state_index]
+       ) 
+
+df_polling_bias_states %>% 
+    group_by(state) %>% 
+    ggplot(aes(x = state, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -2, 2), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+
+# rm(mu_pollster)
+```
+
+```{r}
+# quit(save="ask")
+mu_pollster <-
+  rstan::extract(out, pars = "mu_pollster")[[1]]
+
+dim(mu_pollster) <- nX * m5_data$N_pollsters
+
+df_mu_pollster <- tibble(
+         posterior = mu_pollster,
+         .draw = rep(1:nX, times =  m5_data$N_pollsters),
+         pollster_id = paste0('pollster_', rep(1:m5_data$N_pollsters, each = nX))
+       ) 
+
+df_mu_pollster %>% 
+    group_by(pollster_id) %>% 
+    ggplot(aes(x = pollster_id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -2, 2), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+
+rm(mu_pollster)
+```
+
+```{r}
+
+mu_population <-
+  rstan::extract(out, pars = "mu_population")[[1]]
+
+dim(mu_population) <- nX * m5_data$N_population
+
+df_mu_population <- tibble(
+         posterior = mu_population,
+         .draw = rep(1:nX, times =  m5_data$N_population),
+         id = paste0('population_', rep(1:m5_data$N_population, each = nX))
+       ) %>% 
+    group_by(id) 
+
+df_mu_population %>% 
+    ggplot(aes(x = id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -2, 2), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+
+rm(mu_population)
+```
+
+
+```{r}
+
+mu_methods <-
+  rstan::extract(out, pars = "mu_methods")[[1]]
+
+dim(mu_methods) <- nX * m5_data$N_methods
+
+df_mu_methods <- tibble(
+         posterior = mu_methods,
+         .draw = rep(1:nX, times =  m5_data$N_methods),
+         id = paste0('method_', rep(1:m5_data$N_methods, each = nX))
+       ) 
+
+df_mu_methods %>% 
+    group_by(id) %>% 
+    ggplot(aes(x = id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -2, 2), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+
+rm(mu_methods)
+```
+
+```{r}
+
+poll_noise <-
+  rstan::extract(out, pars = "poll_noise")[[1]]
+
+m5_data$N_polls <- m5_data$N_polls 
+
+dim(poll_noise) <- nX * m5_data$N_polls
+
+df_poll_noise <-
+tibble(
+         posterior = poll_noise,
+         .draw = rep(1:nX, times =  m5_data$N_polls),
+         id = paste0('polls_', rep(1:m5_data$N_polls, each = nX))
+       ) 
+
+df_poll_noise %>% 
+    group_by(id) %>% 
+    ggplot(aes(x = id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -2, 2), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+
+rm(poll_noise)
+```
+
+
+
+```{r fig.height=60, fig.width=20, include=FALSE, eval=FALSE}
+## model diagnotics
+
+draws <- sample(1:20000, size= 100)
+
+df_poll_noise_sub <- df_poll_noise %>%
+ # filter(.draw %in% draws) %>%
+  arrange(.draw) %>% 
+  rename(poll_noise = posterior)
+
+df_states_sigma_sub <- df_sigmas %>%
+  #filter(.draw %in% draws) %>%
+  arrange(.draw) %>% 
+  rename(sigma = .value)
+
+
+l <- c()
+
+
+for(poll in unique(df_poll_noise_sub$id)){
+  for(state_i in unique(df_sigmas$state_index)){
+   p <- df_poll_noise_sub %>% filter(id == poll) %>% pull(poll_noise)
+   s <- df_states_sigma_sub %>% filter(state_index == state_i) %>% pull(sigma)
+   l <- append(l, cor(p, s))
+  }
+}
+
+
+max(l)
+  
+```
+
+
+
+```{r}
+
+polling_bias_states <-
+  rstan::extract(out, pars = "polling_bias_states")[[1]]
+
+dim(polling_bias_states) <- nX * m5_data$N_states
+
+tibble(
+         posterior = polling_bias_states,
+         .draw = rep(1:nX, times =  m5_data$N_states),
+         id = paste0('state_', rep(1:m5_data$N_states, each = nX))
+       ) %>% 
+    group_by(id) %>% 
+    ggplot(aes(x = id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -1, 1), linetype = 'dotted') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+```
+
+```{r  eval=FALSE}
+
+mu_incumbent_party <-
+  rstan::extract(out, pars = "mu_incumbent_party")[[1]]
+
+dim(mu_incumbent_party) <- nX * m5_data$N_incumbent_party
+
+tibble(
+         posterior = mu_incumbent_party,
+         .draw = rep(1:nX, times =  m5_data$N_incumbent_party),
+         id = paste0('party_', rep(1:m5_data$N_incumbent_party, each = nX))
+       ) %>% 
+    group_by(id) %>% 
+    ggplot(aes(x = id, y = posterior)) +
+    stat_interval() +
+    geom_hline(yintercept=c(0, -1, 1), linetype = 'dotted') + 
+    xlab('incumbent_party') + 
+    scale_color_brewer() +
+    scale_y_continuous()
+```
+
+
+
+
+# To web
+```{r}
+
+posterior_dem_today <- df_prediction   %>%   
+                    filter(day == today) %>%    
+                    rename(dem = prediction)
+```
+
+```{r}
+N_pdraws <- MCMC_SETTINGS$N_CHAINS * (MCMC_SETTINGS$N_WARMUP)
+N_states = length(unique(df_polls_two_party$state))
+N_draws <- 100
+step <- N_pdraws / N_draws
+bin_width <-   100 / N_draws
+trailer <- bin_width / 2
+bin_func <- function(d){
+  return(floor(100 * d / bin_width) * bin_width + trailer)
+}
+```
+
+## posterior samples
+
+```{r}
+posterior_draws_today <- posterior_dem_today %>%
+  dplyr::select(.draw, state, dem) %>%
+  group_by(state) %>% 
+  mutate(
+    rep = 1 - dem,
+    nrank =  rank(dem, N_pdraws, ties.method = 'random'),
+    outcome = if_else(dem - rep > 0, "dem",
+                      if_else(dem - rep < 0, 'rep',  'tie')),
+    outcome_index = case_when(outcome == 'dem' ~ 0,
+                              outcome == 'rep' ~ 2,
+                              outcome == 'tie' ~ 1),
+    bin_dem = bin_func(dem),
+    bin_rep = 100 - bin_func(dem),
+  )
+
+```
+
+## ci, density, etc 
+
+```{r}
+
+day_state_summary <- posterior_draws_today %>% 
+    group_by(state) %>% 
+    mean_qi(dem, rep) %>% 
+    dplyr::select(-c('.width', '.point', '.interval'))
+
+
+density_bin_dem_today <-  posterior_draws_today %>% 
+    mutate(bin_dem = as.factor(bin_dem)) %>% 
+    group_by(state, bin_dem) %>% 
+    summarise(n_bin = n(), density_bin = n_bin / N_pdraws) %>% 
+    mutate(bin_name = as.numeric(as.character(bin_dem)) * 100)
+
+
+density_bin_rep_today <- posterior_draws_today %>% 
+     mutate(bin_rep = as.factor(bin_rep)) %>% 
+    group_by(state, bin_rep) %>% 
+    summarise(n_bin = n(), density_bin = n_bin / N_pdraws) %>% 
+    mutate(bin_name = (100 - as.numeric(as.character(bin_rep))) * 100)
+
+```
+
+## prob
+
+```{r}
+prob <- posterior_draws_today %>% 
+  group_by(outcome, state) %>% 
+  summarise(prob = n() / N_pdraws) %>%
+  pivot_wider(names_from = outcome, values_from = prob, names_prefix = 'prob.')
+
+day_var <- posterior_draws_today   %>%
+  group_by(state) %>%
+  summarise(rep.var = var(rep * 100), 
+            dem.var = var(dem * 100)) 
+
+
+# merge into summary
+day_state_summary <- merge(day_state_summary, prob, no.dups = TRUE)
+day_state_summary <- merge(day_state_summary, day_var, no.dups = TRUE)
+
+head(day_state_summary)
+```
+
+
+```{r}
+
+all_states <- c("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI",
+            "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT",
+            "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", 
+            "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
+
+no_race <- vsetdiff(all_states, unique(current_status$state))
+                    
+day_state_summary <- day_state_summary %>% 
+  mutate(prob.dem = replace_na(prob.dem, 0),
+         prob.rep = replace_na(prob.rep, 0)) %>%
+  full_join(current_status, by = 'state') %>%
+  mutate(has_election = TRUE) %>%
+  add_row(state = no_race,
+          has_election = FALSE) %>%
+  arrange(abs(prob.dem - .5))
+```
+
+
+
+## save day summary
+
+```{r}
+
+str <- paste0(  
+  '{',
+  '\"date\":', '\"', date,'\"',',',
+  '\"summary\":', toJSON(day_state_summary),
+  '}'
+)
+
+
+str
+
+write(str,  file = paste0(path, '/day-summary.json'))
+```
+
+
+## all days' summary
+
+
+```{r}
+
+full_state_summary_ci <- df_prediction   %>%
+  rename(dem = prediction) %>%
+  mutate(rep = 1 - dem) %>% 
+  group_by(state, day) %>%
+  mean_qi(rep, dem) %>%
+  dplyr::select(-c('.width', '.point', '.interval'))
+  
+print(Sys.time())
+full_state_summary_prob <- df_prediction   %>%
+  rename(dem = prediction) %>%
+  mutate(rep = 1 - dem) %>% 
+  group_by(state, day) %>%
+  summarise(rep.prob = mean(rep > .5), dem.prob = mean(dem > .5), tie.prob = 1- dem.prob-rep.prob)
+  
+print(Sys.time())
+
+
+full_state_summary <- merge(full_state_summary_ci, full_state_summary_prob, no.dups = TRUE)
+# full_state_summary <- merge(full_state_summary, full_state_summary_var, no.dups = TRUE)
+
+head(full_state_summary)
+```
+
+## get poll info
+
+```{r}
+ df_polls_two_party
+```
+
+## sample 100 posterior draws
+
+```{r fig.height=7, fig.width=10}
+
+draws <- posterior_draws %>%
+  filter(((nrank + step / 2) %% step) == 0)
+
+
+draws %>%
+  ggplot() +
+  geom_dots(aes(x = bin_dem)) +
+  facet_wrap(state ~ .)
+
+```
+
+```{r}
+
+generate_seq <- function(l, r, new_start){
+
+  if(l %% 1 != 0 | r %% 1 != 0)   print(paste(l, r, new_start))
+  original_seq <- sample(rep(c(-.5 * bin_width, .5 * bin_width), times=c(l,r))) 
+  cum_seq <- c(new_start, cumsum(original_seq) + new_start)
+  return(cum_seq)
+}
+
+
+trailer <- bin_width / 2
+
+```
+
+```{r}
+for(s in states) {
+  # 100 samples
+  samples <- draws %>%
+    filter(state == s)  %>%
+    mutate(across(everything(), as.character))
+  
+  sample_summary <- samples %>% 
+    summarise(prob.dem = mean(outcome == 'dem'),
+              prob.rep = mean(outcome == 'rep'),
+              prob.tie = mean(outcome == 'tie'))
+  # time plot
+  time_state_summary <- full_state_summary %>%
+    filter(state == s) %>%
+    mutate(across(everything(), as.character))
+  
+
+  today_summary <- day_state_summary %>% filter(state == s)
+  
+  # plinko
+  start_dem <-
+    floor(today_summary['dem'][[1]] * 100 / bin_width) * bin_width
+  start_rep <-
+    floor(today_summary['rep'][[1]] * 100 / bin_width) * bin_width
+  bin_n_dem <-
+    ceiling(4 * today_summary['dem.var'][[1]] / bin_width ^ 2)
+  bin_n_rep <-
+    ceiling(4 * today_summary['rep.var'][[1]]  / bin_width ^ 2)
+  max_density <-
+    max(
+      max(density_bin_rep_today$density_bin),
+      max(density_bin_dem_today$density_bin)
+    )
+  
+  plinko_height <- max(bin_n_dem, bin_n_rep)
+  
+  if (plinko_height %% 2 != 0)
+    plinko_height = plinko_height + 1
+  
+  print(paste(plinko_height, s))
+  
+  plinko_steps <- draws %>%
+    filter(state == s)  %>%
+    mutate(
+      diff_rep = bin_rep - start_rep - trailer,
+      diff_dem = bin_dem - start_dem - trailer,
+      l_rep =  .5 * (plinko_height - 2 * diff_rep / bin_width),
+      r_rep =  .5 * (plinko_height + 2 * diff_rep / bin_width),
+      l_dem =  .5 * (plinko_height - 2 * diff_dem / bin_width),
+      r_dem =  .5 * (plinko_height + 2 * diff_dem / bin_width)
+    ) %>%
+    rowwise() %>%
+    mutate(# steps_seq_dem = list(generate_seq(l_dem, r_dem, start_dem)),
+      steps_seq = list(generate_seq(l_rep, r_rep, start_rep))) %>%
+    select(.draw,
+           state,
+           dem,
+           rep,
+           outcome,
+           outcome_index,
+           bin_dem,
+           bin_rep,
+           steps_seq) %>%
+    mutate(
+      .draw = as.character(.draw),
+      dem = as.character(dem),
+      rep = as.character(rep),
+      outcome = as.character(outcome),
+      outcome_index = as.character(outcome_index),
+      bin_dem = as.character(bin_dem),
+      bin_rep = as.character(bin_rep)
+    ) %>%
+    ungroup()
+  
+  
+  # intervals stuff
+  state_summary <- day_state_summary %>%
+    filter(state == s) %>%
+    mutate(winner = if_else(prob.dem > .5, 'dem', 'rep'))
+  
+  state_polls <- df_polls_two_party %>%
+    arrange(desc(date)) %>%
+    dplyr::select(-date) %>%
+    filter(state == s)
+  
+  str <- paste0(
+    '{',
+    '\"date\":',
+    '\"',
+    date,
+    '\"',
+    ',',
+    '\"state\":',
+    '\"',
+    s,
+    '\"',
+    ',',
+    '\"samples\":',
+    toJSON(sample(plinko_steps)),
+    ',',
+    '\"sample_summary\":',
+    toJSON(sample_summary),
+    ',',
+    '\"state_summary\":',
+    toJSON(state_summary),
+    ',',
+    '\"time_summary\":',
+    toJSON(time_state_summary),
+    ',',
+    '\"polls\":',
+    toJSON(state_polls),
+    ',',
+    '\"bin_width\":\"',
+    bin_width,
+    '\"',
+    ',',
+    '\"plinko_height\": \"',
+    plinko_height,
+    '\",',
+    '\"plinko_center\": \"',
+    start_rep,
+    '\"',
+    ',',
+    # intervals
+    '\"density_bin_rep_today\":',
+    toJSON(density_bin_rep_today %>%
+             filter(state == s) %>% 
+             mutate(across(
+               everything(), as.character
+             ))) ,
+    ',',
+    '\"density_bin_dem_today\":',
+    toJSON(density_bin_dem_today %>%
+             filter(state == s) %>% 
+             mutate(across(
+               everything(), as.character
+             )))
+    ,
+    '}'
+  )
+  
+  write(str,  file = paste0(path, '/', s, '.json'))
+  
+  str
+}
+
+```
+
+
+
+
+
+
