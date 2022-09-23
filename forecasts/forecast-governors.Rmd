@@ -1,13 +1,7 @@
 ---
-title: "Forecasting 2020 Governor Races"
+title: "Forecasting the 2022 Governor Elections"
 output: 
-  html_document: 
-    toc: yes
-    toc_float:
-      collapsed: no
-      smooth_scroll: no
-    df_print: kable
-    highlight: pygments
+ github_document
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 ---
 
@@ -34,7 +28,6 @@ library(usdata, quietly = TRUE) # state names
 library(RColorBrewer, quietly = TRUE)
 library(rlang, quietly = TRUE)
 
-library(brms, quietly = TRUE)
 library(parallel, quietly = TRUE)
 library(rstan, quietly = TRUE)
 library(tidybayes, quietly = TRUE)
@@ -51,18 +44,16 @@ options(max.print = 10000)
 ```{r}
 
 date <- Sys.Date()
+
 election_day <- ymd('2022-11-08')  
 
-target_day <- min(date, election_day)
+target_day <- election_day #min(date, election_day)
 
 path <- paste0('../../EVA-midterm/midterm-web/public/forecasts/', date)
 
+d_fte <- read_csv('model_comparison/fivethirtyeight-9.1 - Sheet1.csv') %>% select(state, rep.name, dem.name)
+
 dir.create(path)
-
-```
-
-
-```{r}
 
 ```
 
@@ -205,17 +196,13 @@ df_polls %>%
 
 ## clean up and keep two party parts
 
-We assume that all Democrat candidates' ballots will go to the final Democrat candidate, and all republicans' tickets will go to the final Republican candidate. This is an assumption that may not always be true...
+We assume that all Democrat candidates' ballots will go to the final Democrat candidate, and all republicans' tickets will go to the final Republican candidate. This is an assumption that may not always be true.
 
-We also discard other party candidates and their ballots. In some states like Alaska and NM, the third-party candidate is quite compelling...
+We also discard other party candidates and their ballots. In some states like Alaska and New Mexicon, the third-party candidate is quite compelling.
 
-`TODO`: question_id vs, poll_id: a poll may have multiple questions... Now I assume that each question is a small poll.
+A poll may have multiple questions. We assume that each question is a small poll.
 
 ```{r}
-
-# https://www.nytimes.com/interactive/2022/us/elections/midterm-elections-calendar.html
-# useful
-
 df_polls_two_party <- df_polls %>% 
   # This question 148891 asks REP vs IND
   filter(question_id != 148891) %>%
@@ -307,6 +294,8 @@ df_polls_two_party %>%
   facet_wrap(. ~ state, ncol = 5, scales = 'free') 
 ```
 
+Let's check how many polls we have for a state
+
 ```{r}
 df_polls_two_party %>%  
   group_by(state) %>% 
@@ -346,6 +335,7 @@ data{
   int N_pollsters;    
   int N_population;
   int N_methods; 
+  int direction_flag;
   
   array[N_questions] int<lower = 1, upper = N_states> state_index; // State index
   array[N_questions] int<lower = 1, upper = N_days>  day_state_index;   // Day index
@@ -384,10 +374,23 @@ transformed parameters {
  
 
   matrix[N_states,N_days] mu; 
-  mu[:, 1] = raw_mu_first_day;
 
-  for (t in 2:N_days) {
-    mu[:, t] = mu[:,  t - 1] + err[:, t] * state_day_sigma_scaler;
+  // this is forward
+  if(direction_flag > 0){
+    
+    mu[:, 1] = raw_mu_first_day;
+    
+    for (t in 2:N_days) {
+      mu[:, t] = mu[:,  t - 1] + err[:, t] * state_day_sigma_scaler;
+    }
+    
+  }else{
+    // this is backward
+    mu[:, N_days] = raw_mu_first_day;
+    
+    for (t in 1:(N_days-1)) {
+      mu[:, N_days - t] = mu[:,  N_days - t + 1] + err[:, N_days - t + 1] * state_day_sigma_scaler;
+    }
   }
 
 
@@ -423,13 +426,6 @@ model {
   
 }
 
-//generated quantities {
- // matrix[N_states, N_days] prediction;
- // prediction = mu;
- // for (t in 1:N_days){
- //   prediction[:, t] = mu[:, t] + last_dem_logit;
- // }
-//}
 "
 
 if(exists('out')) rm(out)
@@ -478,23 +474,27 @@ pulled_last_dem_logit <- logit(df_polls_two_party %>%
 sigma_scaler = 0.04 
 sigma_scaler_pollster = 0.06
 
-state_day_sigma_scaler = 0.01655
+state_day_sigma_scaler = 0.016
 # 0.0165 from the eco
 # 0.032 if we want to double it
 
-states_poll_bias_scaler = .1
-# .076 result in +- intotal 0.07585401
+states_poll_bias_scaler = .076
+# .076 result in +- in total 0.07585401
 # 0.15 if we want to double it
 # 0.2 if we want to make 20
+
+# we use the forward model
+direction_flag = 1
 
 m5_data = list( 
   sigma_scaler = sigma_scaler,
   sigma_scaler_pollster = sigma_scaler_pollster,
   state_day_sigma_scaler = state_day_sigma_scaler, # sqrt(diag(ss_cov))
   states_poll_bias_scaler = states_poll_bias_scaler,
-#states_sd_scaler = states_sigma_scaler,
+  direction_flag = direction_flag,
+  # states_sd_scaler = states_sigma_scaler,
   # states_sd_scaler = sd_rough$sd_scaler,
-  #states_avg_sigma = states_avg_sigma,
+  # states_avg_sigma = states_avg_sigma,
   N_questions = length(unique(df_polls_two_party$question_id)),
   N_polls = length(unique(df_polls_two_party$poll_index)),
   N_days = as.integer(round(difftime(election_day, min_date))) + 1,
@@ -563,15 +563,15 @@ if (FLAG_RUN_MODEL) {
   
   
   # save model
-  write_rds(out, sprintf('rds/out_%s.rds', target_day), compress = 'gz')
+  write_rds(out, sprintf('rds/out_%s.rds', date), compress = 'gz')
   
-  write_rds(fit, sprintf('rds/fit_%s.rds', target_day), compress = 'gz')
+  write_rds(fit, sprintf('rds/fit_%s.rds', date), compress = 'gz')
   
   rm(fit)
   gc(full = T)
   
 } else {
-  out <- read_rds(sprintf('rds/out_%s.rds', target_day))
+  out <- read_rds(sprintf('rds/out_%s.rds', date))
 }
 ```
 
@@ -579,7 +579,6 @@ if (FLAG_RUN_MODEL) {
 ## posterior
 
 ```{r}
-
 prediction <-
   rstan::extract(out, pars = "mu")[[1]]
 ```
@@ -613,6 +612,7 @@ prediction_summary <-
 ```
 
 
+Let's check 
 
 ```{r fig.height=15, fig.width=15}
 
@@ -643,19 +643,31 @@ prediction_summary %>%
 
 ```{r fig.height=6, fig.width=5}
 
-today_prediction <- df_prediction %>%
-  filter(day == today) %>% 
+election_day_prediction <- df_prediction %>%
+  filter(day == target_day) %>% 
   rename(dem = prediction) %>% 
   mutate(rep = 1 - dem) %>% 
   group_by(state) 
 
-today_prediction %>% 
+election_day_prediction %>% 
   mean_qi(dem, rep, .width = .95) 
 
-today_prediction %>% 
-  mean_qi(dem, rep, .width = .8) %>%
-  merge(today_prediction %>% 
-      summarise(prob.dem = mean(dem > .5), prob.rep = mean(1 - dem > .5))) %>% 
+election_summary <- 
+  election_day_prediction %>% 
+    mean_qi(dem, rep, .width = .8) %>%
+    merge(election_day_prediction %>% 
+        summarise(prob.dem = mean(dem > .5), prob.rep = mean(1 - dem > .5))) #%>%
+
+write_csv(
+  election_day_prediction %>% 
+    mean_qi(dem, rep, .width = c(.8, .95)) %>%
+    mutate(state_day_sigma_scaler = state_day_sigma_scaler,
+           states_poll_bias_scaler = states_poll_bias_scaler, 
+           direction_flag = direction_flag), 
+  file = paste0('model_comparison/', state_day_sigma_scaler, '__', states_poll_bias_scaler, '__', direction_flag, '.csv')
+)
+
+election_summary %>% 
   rowwise() %>% 
   mutate(lower = dem.lower,
          lower.end = max(dem.lower, min(.5, dem.upper)),
@@ -670,14 +682,16 @@ today_prediction %>%
   geom_segment(aes(x = upper.start, xend = upper, y = state, yend = state), size = 4, color = 'steelblue4') +
   geom_vline(xintercept = c(.25, .375, .5, .625, .75), linetype='dotted') +
   geom_text(x = .8, aes(y = state, label = prob)) + 
-  scale_x_continuous(limits = c(.24, .8), breaks = c(.25, .375, .5, .625, .75), labels = c('+50', '+25', '0', '+25', '+50'))
+  scale_x_continuous(limits = c(.1, .8), breaks = c(.25, .375, .5, .625, .75), labels = c('+50', '+25', '0', '+25', '+50'))
 
 ```
 
 
 ## other parameters
+
+First, let's look at the polling bias
+
 ```{r}
-# quit(save="ask")
 polling_bias_states <-
   rstan::extract(out, pars = "polling_bias_states")[[1]]
 
@@ -803,40 +817,6 @@ rm(poll_noise)
 
 
 
-```{r fig.height=60, fig.width=20, include=FALSE, eval=FALSE}
-## model diagnotics
-
-draws <- sample(1:20000, size= 100)
-
-df_poll_noise_sub <- df_poll_noise %>%
- # filter(.draw %in% draws) %>%
-  arrange(.draw) %>% 
-  rename(poll_noise = posterior)
-
-df_states_sigma_sub <- df_sigmas %>%
-  #filter(.draw %in% draws) %>%
-  arrange(.draw) %>% 
-  rename(sigma = .value)
-
-
-l <- c()
-
-
-for(poll in unique(df_poll_noise_sub$id)){
-  for(state_i in unique(df_sigmas$state_index)){
-   p <- df_poll_noise_sub %>% filter(id == poll) %>% pull(poll_noise)
-   s <- df_states_sigma_sub %>% filter(state_index == state_i) %>% pull(sigma)
-   l <- append(l, cor(p, s))
-  }
-}
-
-
-max(l)
-  
-```
-
-
-
 ```{r}
 
 polling_bias_states <-
@@ -882,14 +862,23 @@ tibble(
 
 
 # To web
+
 ```{r}
 
-posterior_dem_today <- df_prediction   %>%   
-                    filter(day == today) %>%    
+write.csv(election_day_prediction %>% select(.draw, dem, rep, day, state), file = paste0('model-output/', date, '_election_day_prediction.csv'))
+
+```
+
+The following code is used only for generating data for the website. We omit explanations for now.
+
+```{r include=FALSE}
+
+posterior_dem_election_day <- df_prediction   %>%   
+                    filter(day == target_day) %>%    
                     rename(dem = prediction)
 ```
 
-```{r}
+```{r include=FALSE}
 N_pdraws <- MCMC_SETTINGS$N_CHAINS * (MCMC_SETTINGS$N_WARMUP)
 N_states = length(unique(df_polls_two_party$state))
 N_draws <- 100
@@ -903,8 +892,8 @@ bin_func <- function(d){
 
 ## posterior samples
 
-```{r}
-posterior_draws_today <- posterior_dem_today %>%
+```{r include=FALSE}
+posterior_draws_election_day <- posterior_dem_election_day %>%
   dplyr::select(.draw, state, dem) %>%
   group_by(state) %>% 
   mutate(
@@ -923,23 +912,23 @@ posterior_draws_today <- posterior_dem_today %>%
 
 ## ci, density, etc 
 
-```{r}
+```{r include=FALSE}
 
-day_state_summary <- posterior_draws_today %>% 
+day_state_summary <- posterior_draws_election_day %>% 
     group_by(state) %>% 
     mean_qi(dem, rep) %>% 
     dplyr::select(-c('.width', '.point', '.interval'))
 
 
-density_bin_dem_today <-  posterior_draws_today %>% 
+density_bin_dem_election_day <-  posterior_draws_election_day %>% 
     mutate(bin_dem = as.factor(bin_dem)) %>% 
     group_by(state, bin_dem) %>% 
     summarise(n_bin = n(), density_bin = n_bin / N_pdraws) %>% 
     mutate(name = 'dem')
 
 
-density_bin_rep_today <- posterior_draws_today %>% 
-     mutate(bin_rep = as.factor(bin_rep)) %>% 
+density_bin_rep_election_day <- posterior_draws_election_day %>% 
+    mutate(bin_rep = as.factor(bin_rep)) %>% 
     group_by(state, bin_rep) %>% 
     summarise(n_bin = n(), density_bin = n_bin / N_pdraws) %>% 
     mutate(name = 'rep')
@@ -947,13 +936,13 @@ density_bin_rep_today <- posterior_draws_today %>%
 
 ## prob
 
-```{r}
-prob <- posterior_draws_today %>% 
+```{r include=FALSE}
+prob <- posterior_draws_election_day %>% 
   group_by(outcome, state) %>% 
   summarise(prob = n() / N_pdraws) %>%
   pivot_wider(names_from = outcome, values_from = prob, names_prefix = 'prob.')
 
-day_var <- posterior_draws_today   %>%
+day_var <- posterior_draws_election_day   %>%
   group_by(state) %>%
   summarise(rep.var = var(rep * 100), 
             dem.var = var(dem * 100)) 
@@ -967,7 +956,7 @@ head(day_state_summary)
 ```
 
 
-```{r}
+```{r include=FALSE}
 
 no_race <- vsetdiff(all_states, unique(current_status$state))
                     
@@ -985,7 +974,7 @@ day_state_summary <- day_state_summary %>%
 
 ## save day summary
 
-```{r}
+```{r include=FALSE}
 
 str <- paste0(  
   '{',
@@ -1004,7 +993,7 @@ write(str,  file = paste0(path, '/day-summary.json'))
 ## all days' summary
 
 
-```{r}
+```{r include=FALSE}
 
 full_state_summary_ci <- df_prediction   %>%
   rename(dem = prediction) %>%
@@ -1030,15 +1019,15 @@ head(full_state_summary)
 
 ## get poll info
 
-```{r}
+```{r include=FALSE}
  df_polls_two_party
 ```
 
 ## sample 100 posterior draws
 
-```{r fig.height=7, fig.width=10}
+```{r fig.height=7, fig.width=10, include=FALSE}
 
-draws <- posterior_draws_today %>%
+draws <- posterior_draws_election_day %>%
   filter(((nrank + step / 2) %% step) == 0)
 
 
@@ -1049,10 +1038,10 @@ draws %>%
 
 ```
 
-```{r}
+```{r include=FALSE}
+# for plinko
 
 generate_seq <- function(l, r, new_start){
-
   if(l %% 1 != 0 | r %% 1 != 0)   print(paste(l, r, new_start))
   original_seq <- sample(rep(c(-.5 * bin_width, .5 * bin_width), times=c(l,r))) 
   cum_seq <- c(new_start, cumsum(original_seq) + new_start)
@@ -1064,8 +1053,11 @@ trailer <- bin_width / 2
 
 ```
 
-```{r}
+```{r include=FALSE}
 for(s in states) {
+  
+  last_names <- d_fte %>% filter(state == s)
+  
   # 100 samples
   samples <- draws %>%
     filter(state == s)  %>%
@@ -1075,27 +1067,29 @@ for(s in states) {
     summarise(prob.dem = mean(outcome == 'dem'),
               prob.rep = mean(outcome == 'rep'),
               prob.tie = mean(outcome == 'tie'))
+  
   # time plot
   time_state_summary <- full_state_summary %>%
     filter(state == s) %>%
     mutate(across(everything(), as.character))
   
 
-  today_summary <- day_state_summary %>% filter(state == s)
+  current_summary <- day_state_summary %>% 
+    filter(state == s)
   
   # plinko
   start_dem <-
-    floor(today_summary['dem'][[1]] * 100 / bin_width) * bin_width + trailer
+    floor(current_summary['dem'][[1]] * 100 / bin_width) * bin_width + trailer
   start_rep <-
-    floor(today_summary['rep'][[1]] * 100 / bin_width) * bin_width  + trailer
+    floor(current_summary['rep'][[1]] * 100 / bin_width) * bin_width  + trailer
   bin_n_dem <-
-    ceiling(4 * today_summary['dem.var'][[1]] / bin_width ^ 2)
+    ceiling(4 * current_summary['dem.var'][[1]] / bin_width ^ 2)
   bin_n_rep <-
-    ceiling(4 * today_summary['rep.var'][[1]]  / bin_width ^ 2)
+    ceiling(4 * current_summary['rep.var'][[1]]  / bin_width ^ 2)
   max_density <-
     max(
-      max(density_bin_rep_today$density_bin),
-      max(density_bin_dem_today$density_bin)
+      max(density_bin_rep_election_day$density_bin),
+      max(density_bin_dem_election_day$density_bin)
     )
   
   plinko_height <- max(bin_n_dem, bin_n_rep)
@@ -1139,15 +1133,27 @@ for(s in states) {
     ungroup()
   
   
-  # intervals stuff
+  # overall intervals stuff
   state_summary <- day_state_summary %>%
     filter(state == s) %>%
+    filter() %>% 
     mutate(winner = if_else(prob.dem > .5, 'dem', 'rep'))
   
+  # polls
   state_polls <- df_polls_two_party %>%
     arrange(desc(date)) %>%
     dplyr::select(-date) %>%
     filter(state == s)
+  
+  # for density   
+  day_boundraies <- time_state_summary %>% 
+    filter(day == target_day & state == s) %>% 
+    mutate(rep = bin_func(as.numeric(rep)), 
+           dem = bin_func(as.numeric(dem)),
+           rep.lower = bin_func(as.numeric(rep.lower)),
+           rep.upper = bin_func(as.numeric(rep.upper)),
+           dem.lower = bin_func(as.numeric(dem.lower)),
+           dem.upper = bin_func(as.numeric(dem.upper)))
   
   str <- paste0(
     '{',
@@ -1160,6 +1166,9 @@ for(s in states) {
     '\"',
     s,
     '\"',
+    ',',
+    '\"last_names\":',
+    toJSON(last_names),
     ',',
     '\"samples\":',
     toJSON(sample(plinko_steps)),
@@ -1189,15 +1198,19 @@ for(s in states) {
     ',',
     # intervals
     '\"density_bin_rep_today\":',
-    toJSON(density_bin_rep_today %>%
+    toJSON(density_bin_rep_election_day %>%
              filter(state == s) %>% 
+             filter(as.numeric(as.character(bin_rep)) >= day_boundraies$rep.lower[1] & 
+                    as.numeric(as.character(bin_rep)) <= day_boundraies$rep.upper[1]) %>% 
              mutate(across(
                everything(), as.character
              ))) ,
     ',',
     '\"density_bin_dem_today\":',
-    toJSON(density_bin_dem_today %>%
+    toJSON(density_bin_dem_election_day %>%
              filter(state == s) %>% 
+             filter(as.numeric(as.character(bin_dem)) >= day_boundraies$dem.lower[1] & 
+                    as.numeric(as.character(bin_dem)) <= day_boundraies$dem.upper[1]) %>% 
              mutate(across(
                everything(), as.character
              )))

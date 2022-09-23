@@ -7,6 +7,7 @@ data{
   int N_pollsters;    
   int N_population;
   int N_methods; 
+  int direction_flag;
   
   array[N_questions] int<lower = 1, upper = N_states> state_index; // State index
   array[N_questions] int<lower = 1, upper = N_days>  day_state_index;   // Day index
@@ -45,10 +46,23 @@ transformed parameters {
  
 
   matrix[N_states,N_days] mu; 
-  mu[:, 1] = raw_mu_first_day;
 
-  for (t in 2:N_days) {
-    mu[:, t] = mu[:,  t - 1] + err[:, t] * state_day_sigma_scaler;
+  // this is forward
+  if(direction_flag > 0){
+    
+    mu[:, 1] = raw_mu_first_day;
+    
+    for (t in 2:N_days) {
+      mu[:, t] = mu[:,  t - 1] + err[:, t] * state_day_sigma_scaler;
+    }
+    
+  }else{
+    // this is backward
+    mu[:, N_days] = raw_mu_first_day;
+    
+    for (t in 1:(N_days-1)) {
+      mu[:, N_days - t] = mu[:,  N_days - t + 1] + err[:, N_days - t + 1] * state_day_sigma_scaler;
+    }
   }
 
 
@@ -84,11 +98,4 @@ model {
   
 }
 
-//generated quantities {
- // matrix[N_states, N_days] prediction;
- // prediction = mu;
- // for (t in 1:N_days){
- //   prediction[:, t] = mu[:, t] + last_dem_logit;
- // }
-//}
 
