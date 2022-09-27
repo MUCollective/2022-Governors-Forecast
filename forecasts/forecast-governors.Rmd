@@ -23,7 +23,7 @@ library(ggpubr, quietly = TRUE)
 library(readxl, quietly = TRUE) # read data
 library(lubridate, quietly = TRUE) # date
 library(parsedate, quietly = TRUE)
-library(readr, quietly = TRUE) # csv
+library(readr, quietly = TRUE) # csv    
 library(usdata, quietly = TRUE) # state names
 library(RColorBrewer, quietly = TRUE)
 library(rlang, quietly = TRUE)
@@ -41,7 +41,7 @@ options(max.print = 10000)
 ```
 
 
-```{r}
+```{r message=FALSE}
 
 date <- Sys.Date()
 
