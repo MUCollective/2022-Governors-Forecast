@@ -6,7 +6,7 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = TRUE)
 rm(list = ls(all.names = TRUE)) 
 ```
 
@@ -51,7 +51,7 @@ target_day <- election_day #min(date, election_day)
 
 path <- paste0('../../EVA-midterm/midterm-web/public/forecasts/', date)
 
-d_fte <- read_csv('model_comparison/fivethirtyeight-9.1 - Sheet1.csv') %>% select(state, rep.name, dem.name)
+d_fte <- read_csv('data/fivethirtyeight-9.1.csv') %>% select(state, rep.name, dem.name)
 
 dir.create(path)
 
@@ -154,13 +154,15 @@ df_polls_1 <- df_polls_0 %>%
 max_date = today
 
 head(df_polls_1, n = 10)
+
+# the number of states we can forecast
 length(unique(df_polls_1$state))
 ```
 
 
 
 ```{r}
-# transform cook report to get incumbency and the last election pct
+# transform cook report to get incumbency and the last election dem pct
 current_status_short <-
   current_status %>% 
   rename(party = Party) %>% 
@@ -179,7 +181,7 @@ df_polls <-
 ```
 
 
-get a sense of the polls
+Let's first get a sense of the polls
 
 ```{r fig.height=15, fig.width=15}
 
@@ -204,8 +206,8 @@ A poll may have multiple questions. We assume that each question is a small poll
 
 ```{r}
 df_polls_two_party <- df_polls %>% 
-  # This question 148891 asks REP vs IND
-  filter(question_id != 148891) %>%
+  # These questions ask IND
+  filter(question_id != 148891 & question_id != 162710) %>%
   filter(state != 'AK') %>% 
   group_by(question_id, party) %>% 
   summarise(grouped_pct = sum(pct), 
@@ -276,12 +278,13 @@ df_polls_two_party <- df_polls %>%
 
 states <- unique(df_polls_two_party$state)
 
+# check if there is NA
 if(nrow(na.omit(df_polls_two_party)) != nrow(df_polls_two_party)) quit(save="ask")
 ```
 
 ## look at the data after clean-up
 
-```{r fig.height=10, fig.width=15}
+```{r fig.height=10, fig.width=15, warning=FALSE}
 df_polls_two_party %>% 
   ggplot() +
   geom_line(mapping = aes(x = start_date, y = dem_pct), color = 'steelblue') + 
@@ -304,6 +307,9 @@ df_polls_two_party %>%
 
 
 # Modeling preparation
+
+
+
 
 ```{r include=FALSE}
 MCMC_SETTINGS <- list(
@@ -437,7 +443,7 @@ if(exists('df_poll_noise')) rm(df_poll_noise)
 f <- write_stan_file(code = m5_stan, dir = 'stan', basename = 'm5.stan')
 ```
 
-## transform data
+## transform data to pass to stan
 
 ```{r}
 df_polls_two_party <-
@@ -475,7 +481,7 @@ sigma_scaler = 0.04
 sigma_scaler_pollster = 0.06
 
 state_day_sigma_scaler = 0.016
-# 0.0165 from the eco
+# 0.0165 from the economist's 2020 presidential election
 # 0.032 if we want to double it
 
 states_poll_bias_scaler = .076
@@ -489,7 +495,7 @@ direction_flag = 1
 m5_data = list( 
   sigma_scaler = sigma_scaler,
   sigma_scaler_pollster = sigma_scaler_pollster,
-  state_day_sigma_scaler = state_day_sigma_scaler, # sqrt(diag(ss_cov))
+  state_day_sigma_scaler = state_day_sigma_scaler, 
   states_poll_bias_scaler = states_poll_bias_scaler,
   direction_flag = direction_flag,
   # states_sd_scaler = states_sigma_scaler,
@@ -576,7 +582,8 @@ if (FLAG_RUN_MODEL) {
 ```
 
 
-## posterior
+## posterior prediction
+
 
 ```{r}
 prediction <-
@@ -612,7 +619,7 @@ prediction_summary <-
 ```
 
 
-Let's check 
+Let's check the model prediction for the entire election season
 
 ```{r fig.height=15, fig.width=15}
 
@@ -639,10 +646,9 @@ prediction_summary %>%
   facet_wrap(state ~ ., ncol = 5, scale = 'free_x')
 ```
 
-
+Get summary on election day
 
 ```{r fig.height=6, fig.width=5}
-
 election_day_prediction <- df_prediction %>%
   filter(day == target_day) %>% 
   rename(dem = prediction) %>% 
@@ -657,7 +663,10 @@ election_summary <-
     mean_qi(dem, rep, .width = .8) %>%
     merge(election_day_prediction %>% 
         summarise(prob.dem = mean(dem > .5), prob.rep = mean(1 - dem > .5))) #%>%
+```
 
+
+```{r fig.height=6, fig.width=5, include=FALSE}
 write_csv(
   election_day_prediction %>% 
     mean_qi(dem, rep, .width = c(.8, .95)) %>%
@@ -666,7 +675,12 @@ write_csv(
            direction_flag = direction_flag), 
   file = paste0('model_comparison/', state_day_sigma_scaler, '__', states_poll_bias_scaler, '__', direction_flag, '.csv')
 )
+```
 
+
+Show 80% credible intervals and probabilities (like fivethirtyeight)
+
+```{r fig.height=6, fig.width=5}
 election_summary %>% 
   rowwise() %>% 
   mutate(lower = dem.lower,
@@ -687,9 +701,9 @@ election_summary %>%
 ```
 
 
-## other parameters
+## check other terms
 
-First, let's look at the polling bias
+First, let's look at the polling bias for each state
 
 ```{r}
 polling_bias_states <-
@@ -712,11 +726,15 @@ df_polling_bias_states %>%
     scale_color_brewer() +
     scale_y_continuous()
 
-# rm(mu_pollster)
+# save memory
+rm(polling_bias_states)
+rm(df_polling_bias_states)
 ```
 
+
+also pollster bias
+
 ```{r}
-# quit(save="ask")
 mu_pollster <-
   rstan::extract(out, pars = "mu_pollster")[[1]]
 
@@ -736,8 +754,12 @@ df_mu_pollster %>%
     scale_color_brewer() +
     scale_y_continuous()
 
+# save memory
 rm(mu_pollster)
+rm(df_mu_pollster)
 ```
+
+Also different voter types
 
 ```{r}
 
@@ -760,9 +782,12 @@ df_mu_population %>%
     scale_color_brewer() +
     scale_y_continuous()
 
+# save memory
 rm(mu_population)
+rm(df_mu_population)
 ```
 
+The effects of different polling methods
 
 ```{r}
 
@@ -785,8 +810,12 @@ df_mu_methods %>%
     scale_color_brewer() +
     scale_y_continuous()
 
+# save memory
 rm(mu_methods)
+rm(df_mu_methods)
 ```
+
+Each individual poll's nosie
 
 ```{r}
 
@@ -812,33 +841,14 @@ df_poll_noise %>%
     scale_color_brewer() +
     scale_y_continuous()
 
+# save memory
 rm(poll_noise)
+rm(df_poll_noise)
 ```
 
-
-
-```{r}
-
-polling_bias_states <-
-  rstan::extract(out, pars = "polling_bias_states")[[1]]
-
-dim(polling_bias_states) <- nX * m5_data$N_states
-
-tibble(
-         posterior = polling_bias_states,
-         .draw = rep(1:nX, times =  m5_data$N_states),
-         id = paste0('state_', rep(1:m5_data$N_states, each = nX))
-       ) %>% 
-    group_by(id) %>% 
-    ggplot(aes(x = id, y = posterior)) +
-    stat_interval() +
-    geom_hline(yintercept=c(0, -1, 1), linetype = 'dotted') + 
-    scale_color_brewer() +
-    scale_y_continuous()
-```
 
 ```{r  eval=FALSE}
-
+# This was used and then found incumbent effect does not matter
 mu_incumbent_party <-
   rstan::extract(out, pars = "mu_incumbent_party")[[1]]
 
@@ -869,7 +879,7 @@ write.csv(election_day_prediction %>% select(.draw, dem, rep, day, state), file 
 
 ```
 
-The following code is used only for generating data for the website. We omit explanations for now.
+The following code is used only for generating data for the website. We omit explanations.
 
 ```{r include=FALSE}
 

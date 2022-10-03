@@ -1,6 +1,6 @@
 Forecasting the 2022 Governor Elections
 ================
-September 26, 2022
+October 02, 2022
 
 # Settings
 
@@ -15,7 +15,7 @@ library(ggpubr, quietly = TRUE)
 library(readxl, quietly = TRUE) # read data
 library(lubridate, quietly = TRUE) # date
 library(parsedate, quietly = TRUE)
-library(readr, quietly = TRUE) # csv
+library(readr, quietly = TRUE) # csv    
 library(usdata, quietly = TRUE) # state names
 library(RColorBrewer, quietly = TRUE)
 library(rlang, quietly = TRUE)
@@ -46,21 +46,13 @@ target_day <- election_day #min(date, election_day)
 
 path <- paste0('../../EVA-midterm/midterm-web/public/forecasts/', date)
 
-d_fte <- read_csv('model_comparison/fivethirtyeight-9.1 - Sheet1.csv') %>% select(state, rep.name, dem.name)
-```
+d_fte <- read_csv('data/fivethirtyeight-9.1.csv') %>% select(state, rep.name, dem.name)
 
-    ## Rows: 36 Columns: 6
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (3): state, rep.name, dem.name
-    ## dbl (3): mean, .upper, .lower
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
-``` r
 dir.create(path)
 ```
+
+    ## Warning in dir.create(path): '../../EVA-midterm/midterm-web/public/forecasts/
+    ## 2022-10-02' already exists
 
 # Theme set
 
@@ -88,7 +80,7 @@ today <- Sys.Date()
 current_polls <- read_csv('https://projects.fivethirtyeight.com/polls/data/governor_polls.csv')
 ```
 
-    ## Rows: 1856 Columns: 42
+    ## Rows: 1969 Columns: 42
     ## ── Column specification ────────────────────────────────────────────────────────
     ## Delimiter: ","
     ## chr (23): pollster, sponsors, display_name, pollster_rating_name, fte_grade,...
@@ -113,14 +105,14 @@ head(current_polls)
 ```
 
     ## # A tibble: 6 × 42
-    ##   poll_id pollster_id pollster                 sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                          <dbl> <chr>    <chr>       
-    ## 1   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 2   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 3   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 4   80815         438 Siena                            979 Spectru… Siena Colle…
-    ## 5   80815         438 Siena                            979 Spectru… Siena Colle…
-    ## 6   80762        1677 The Political Matrix/Th…          NA <NA>     The Politic…
+    ##   poll_id pollster_id pollster        sponsor_ids sponsors          display_name
+    ##     <dbl>       <dbl> <chr>                 <dbl> <chr>             <chr>       
+    ## 1   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 2   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 3   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 4   80845         383 PPP                      NA <NA>              Public Poli…
+    ## 5   80845         383 PPP                      NA <NA>              Public Poli…
+    ## 6   80884         147 Fabrizio               1804 People Who Play … Fabrizio, L…
     ## # … with 36 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -165,14 +157,14 @@ head(current_polls %>%
 ```
 
     ## # A tibble: 6 × 43
-    ##   poll_id pollster_id pollster                 sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                          <dbl> <chr>    <chr>       
-    ## 1   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 2   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 3   80813         235 InsiderAdvantage                 566 Fox 29 … InsiderAdva…
-    ## 4   80815         438 Siena                            979 Spectru… Siena Colle…
-    ## 5   80815         438 Siena                            979 Spectru… Siena Colle…
-    ## 6   80762        1677 The Political Matrix/Th…          NA <NA>     The Politic…
+    ##   poll_id pollster_id pollster        sponsor_ids sponsors          display_name
+    ##     <dbl>       <dbl> <chr>                 <dbl> <chr>             <chr>       
+    ## 1   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 2   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 3   80881        1250 Trafalgar Group          NA <NA>              Trafalgar G…
+    ## 4   80845         383 PPP                      NA <NA>              Public Poli…
+    ## 5   80845         383 PPP                      NA <NA>              Public Poli…
+    ## 6   80884         147 Fabrizio               1804 People Who Play … Fabrizio, L…
     ## # … with 37 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -237,28 +229,29 @@ head(df_polls_1, n = 10)
     ## # A tibble: 10 × 19
     ##    date  state answer candidate_name party sample_size   pct poll_id pollster_id
     ##    <drt> <chr> <chr>  <chr>          <chr>       <dbl> <dbl>   <dbl>       <dbl>
-    ##  1 632 … PA    Shapi… Josh Shapiro   DEM           500 0.519   80813         235
-    ##  2 632 … PA    Mastr… Douglas V. Ma… REP           500 0.371   80813         235
-    ##  3 632 … PA    Hacke… Matt Hackenbu… LIB           500 0.034   80813         235
-    ##  4 629 … OH    Whaley Nan Whaley     DEM           642 0.32    80815         438
-    ##  5 629 … OH    DeWine Mike DeWine    REP           642 0.55    80815         438
-    ##  6 630 … FL    Crist  Charlie Crist  DEM           700 0.53    80762        1677
-    ##  7 630 … FL    DeSan… Ron DeSantis   REP           700 0.47    80762        1677
-    ##  8 629 … OK    Hofme… Joy Hofmeister DEM           500 0.44    80808        1553
-    ##  9 629 … OK    Stitt  Kevin Stitt    REP           500 0.47    80808        1553
-    ## 10 629 … OK    Bruno  Natalie Bruno  LIB           500 0.02    80808        1553
+    ##  1 635 … MI    Whitm… Gretchen Whit… DEM          1075 0.509   80881        1250
+    ##  2 635 … MI    Dixon  Tudor M. Dixon REP          1075 0.451   80881        1250
+    ##  3 635 … MI    Buzuma Mary Buzuma    LIB          1075 0.026   80881        1250
+    ##  4 636 … WI    Evers  Tony Evers     DEM           574 0.48    80845         383
+    ##  5 636 … WI    Miche… Tim Michels    REP           574 0.46    80845         383
+    ##  6 635 … IL    Pritz… J.B. Pritzker  DEM           800 0.48    80884         147
+    ##  7 635 … IL    Bailey Darren Bailey  REP           800 0.4     80884         147
+    ##  8 635 … IL    Schlu… Scott Schluter LIB           800 0.03    80884         147
+    ##  9 635 … IL    Pritz… J.B. Pritzker  DEM           800 0.5     80884         147
+    ## 10 635 … IL    Bailey Darren Bailey  REP           800 0.45    80884         147
     ## # … with 10 more variables: question_id <dbl>, pollster <chr>,
     ## #   display_name <chr>, fte_grade <chr>, methodology <chr>, population <chr>,
     ## #   state_full <chr>, start_date <date>, end_date <date>, url <chr>
 
 ``` r
+# the number of states we can forecast
 length(unique(df_polls_1$state))
 ```
 
-    ## [1] 29
+    ## [1] 30
 
 ``` r
-# transform cook report to get incumbency and the last election pct
+# transform cook report to get incumbency and the last election dem pct
 current_status_short <-
   current_status %>% 
   rename(party = Party) %>% 
@@ -274,7 +267,7 @@ df_polls <-
   filter(!is.na(state))
 ```
 
-get a sense of the polls
+Let’s first get a sense of the polls
 
 ``` r
 df_polls %>% 
@@ -285,6 +278,8 @@ df_polls %>%
   geom_label(x = today, y = .8, aes(label = Cook, fill = Cook), size = 2.5) +
   facet_wrap(. ~ state, ncol = 5, scales = 'free') 
 ```
+
+    ## Warning: Removed 4 rows containing missing values (geom_label).
 
 ![](forecast-governors_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
@@ -303,8 +298,8 @@ small poll.
 
 ``` r
 df_polls_two_party <- df_polls %>% 
-  # This question 148891 asks REP vs IND
-  filter(question_id != 148891) %>%
+  # These questions ask IND
+  filter(question_id != 148891 & question_id != 162710) %>%
   filter(state != 'AK') %>% 
   group_by(question_id, party) %>% 
   summarise(grouped_pct = sum(pct), 
@@ -379,6 +374,7 @@ df_polls_two_party <- df_polls %>%
 ``` r
 states <- unique(df_polls_two_party$state)
 
+# check if there is NA
 if(nrow(na.omit(df_polls_two_party)) != nrow(df_polls_two_party)) quit(save="ask")
 ```
 
@@ -397,11 +393,6 @@ df_polls_two_party %>%
   facet_wrap(. ~ state, ncol = 5, scales = 'free') 
 ```
 
-    ## geom_path: Each group consists of only one observation. Do you need to adjust
-    ## the group aesthetic?
-    ## geom_path: Each group consists of only one observation. Do you need to adjust
-    ## the group aesthetic?
-
 ![](forecast-governors_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 Let’s check how many polls we have for a state
@@ -416,14 +407,14 @@ df_polls_two_party %>%
     ##    state `n()`
     ##    <chr> <int>
     ##  1 AR        4
-    ##  2 AZ       27
+    ##  2 AZ       30
     ##  3 CA        7
-    ##  4 CO       11
-    ##  5 CT        7
+    ##  4 CO       13
+    ##  5 CT        9
     ##  6 FL       74
-    ##  7 GA       48
+    ##  7 GA       49
     ##  8 IA        4
-    ##  9 IL       10
+    ##  9 IL       15
     ## 10 KS        6
     ## # … with 18 more rows
 
@@ -545,7 +536,7 @@ if(exists('df_poll_noise')) rm(df_poll_noise)
 f <- write_stan_file(code = m5_stan, dir = 'stan', basename = 'm5.stan')
 ```
 
-## transform data
+## transform data to pass to stan
 
 ``` r
 df_polls_two_party <-
@@ -580,7 +571,7 @@ sigma_scaler = 0.04
 sigma_scaler_pollster = 0.06
 
 state_day_sigma_scaler = 0.016
-# 0.0165 from the eco
+# 0.0165 from the economist's 2020 presidential election
 # 0.032 if we want to double it
 
 states_poll_bias_scaler = .076
@@ -594,7 +585,7 @@ direction_flag = 1
 m5_data = list( 
   sigma_scaler = sigma_scaler,
   sigma_scaler_pollster = sigma_scaler_pollster,
-  state_day_sigma_scaler = state_day_sigma_scaler, # sqrt(diag(ss_cov))
+  state_day_sigma_scaler = state_day_sigma_scaler, 
   states_poll_bias_scaler = states_poll_bias_scaler,
   direction_flag = direction_flag,
   # states_sd_scaler = states_sigma_scaler,
@@ -787,56 +778,56 @@ if (FLAG_RUN_MODEL) {
     ## Chain 2 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 4 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 1 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
-    ## Chain 3 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
-    ## Chain 1 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 2 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 4 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
-    ## Chain 3 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 1 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 3 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
+    ## Chain 1 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 2 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 4 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 3 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 1 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 3 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 1 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 2 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 4 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 3 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 3 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 1 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 1 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 3 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 1 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 2 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 2 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
     ## Chain 4 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 4 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 3 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
-    ## Chain 1 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
+    ## Chain 3 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 3 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 1 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 1 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
     ## Chain 2 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
     ## Chain 4 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
-    ## Chain 3 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
-    ## Chain 1 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
+    ## Chain 3 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
+    ## Chain 1 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
     ## Chain 2 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
     ## Chain 4 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
-    ## Chain 3 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
-    ## Chain 1 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
+    ## Chain 3 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
+    ## Chain 1 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
     ## Chain 2 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
+    ## Chain 3 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
     ## Chain 4 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
-    ## Chain 3 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
-    ## Chain 1 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
-    ## Chain 4 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
+    ## Chain 1 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
     ## Chain 2 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
-    ## Chain 3 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 3 finished in 1971.8 seconds.
-    ## Chain 1 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 1 finished in 1980.6 seconds.
-    ## Chain 4 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 4 finished in 1988.8 seconds.
+    ## Chain 3 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
+    ## Chain 4 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
+    ## Chain 1 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 2 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 2 finished in 1989.2 seconds.
+    ## Chain 2 finished in 2007.6 seconds.
+    ## Chain 3 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 4 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 3 finished in 2012.8 seconds.
+    ## Chain 4 finished in 2013.0 seconds.
+    ## Chain 1 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 1 finished in 2013.9 seconds.
     ## 
     ## All 4 chains finished successfully.
-    ## Mean chain execution time: 1982.6 seconds.
-    ## Total execution time: 1989.3 seconds.
+    ## Mean chain execution time: 2011.8 seconds.
+    ## Total execution time: 2014.0 seconds.
     ## 
-    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/Rtmp3aFhGd/m5-202209262014-1-90bceb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/Rtmp3aFhGd/m5-202209262014-2-90bceb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/Rtmp3aFhGd/m5-202209262014-3-90bceb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/Rtmp3aFhGd/m5-202209262014-4-90bceb.csv
+    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpTM1OaC/m5-202210021845-1-90144e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpTM1OaC/m5-202210021845-2-90144e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpTM1OaC/m5-202210021845-3-90144e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpTM1OaC/m5-202210021845-4-90144e.csv
     ## 
     ## Checking sampler transitions treedepth.
     ## Treedepth satisfactory for all transitions.
@@ -854,10 +845,10 @@ if (FLAG_RUN_MODEL) {
     ## Processing complete, no problems detected.
 
     ##             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
-    ## Ncells   2235197  119.4    3722957   198.9         NA    3722957   198.9
-    ## Vcells 786463427 6000.3 1571366987 11988.6  1.024e+12 1470843362 11221.7
+    ## Ncells   2236745  119.5    3739711   199.8         NA    3739711   199.8
+    ## Vcells 787960965 6011.7 1580307966 12056.8  1.024e+12 1425209763 10873.5
 
-## posterior
+## posterior prediction
 
 ``` r
 prediction <-
@@ -890,7 +881,7 @@ prediction_summary <-
     mutate(diff = .upper - .lower)
 ```
 
-Let’s check
+Let’s check the model prediction for the entire election season
 
 ``` r
 prediction_summary %>% 
@@ -918,6 +909,8 @@ prediction_summary %>%
 
 ![](forecast-governors_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
+Get summary on election day
+
 ``` r
 election_day_prediction <- df_prediction %>%
   filter(day == target_day) %>% 
@@ -932,16 +925,16 @@ election_day_prediction %>%
     ## # A tibble: 28 × 10
     ##    state   dem dem.lower dem.upper   rep rep.lower rep.upper .width .point
     ##    <chr> <dbl>     <dbl>     <dbl> <dbl>     <dbl>     <dbl>  <dbl> <chr> 
-    ##  1 AR    0.395     0.327     0.468 0.605     0.532     0.673   0.95 mean  
-    ##  2 AZ    0.515     0.443     0.588 0.485     0.412     0.557   0.95 mean  
-    ##  3 CA    0.661     0.584     0.731 0.339     0.269     0.416   0.95 mean  
-    ##  4 CO    0.592     0.519     0.663 0.408     0.337     0.481   0.95 mean  
-    ##  5 CT    0.587     0.515     0.657 0.413     0.343     0.485   0.95 mean  
-    ##  6 FL    0.473     0.404     0.544 0.527     0.456     0.596   0.95 mean  
-    ##  7 GA    0.486     0.417     0.556 0.514     0.444     0.583   0.95 mean  
-    ##  8 IA    0.430     0.335     0.529 0.570     0.471     0.665   0.95 mean  
-    ##  9 IL    0.567     0.487     0.643 0.433     0.357     0.513   0.95 mean  
-    ## 10 KS    0.530     0.456     0.605 0.470     0.395     0.544   0.95 mean  
+    ##  1 AR    0.395     0.326     0.469 0.605     0.531     0.674   0.95 mean  
+    ##  2 AZ    0.510     0.442     0.579 0.490     0.421     0.558   0.95 mean  
+    ##  3 CA    0.660     0.585     0.730 0.340     0.270     0.415   0.95 mean  
+    ##  4 CO    0.590     0.521     0.655 0.410     0.345     0.479   0.95 mean  
+    ##  5 CT    0.582     0.511     0.651 0.418     0.349     0.489   0.95 mean  
+    ##  6 FL    0.473     0.404     0.542 0.527     0.458     0.596   0.95 mean  
+    ##  7 GA    0.482     0.413     0.551 0.518     0.449     0.587   0.95 mean  
+    ##  8 IA    0.431     0.335     0.530 0.569     0.470     0.665   0.95 mean  
+    ##  9 IL    0.573     0.503     0.640 0.427     0.360     0.497   0.95 mean  
+    ## 10 KS    0.528     0.453     0.603 0.472     0.397     0.547   0.95 mean  
     ## # … with 18 more rows, and 1 more variable: .interval <chr>
 
 ``` r
@@ -950,16 +943,11 @@ election_summary <-
     mean_qi(dem, rep, .width = .8) %>%
     merge(election_day_prediction %>% 
         summarise(prob.dem = mean(dem > .5), prob.rep = mean(1 - dem > .5))) #%>%
+```
 
-write_csv(
-  election_day_prediction %>% 
-    mean_qi(dem, rep, .width = c(.8, .95)) %>%
-    mutate(state_day_sigma_scaler = state_day_sigma_scaler,
-           states_poll_bias_scaler = states_poll_bias_scaler, 
-           direction_flag = direction_flag), 
-  file = paste0('model_comparison/', state_day_sigma_scaler, '__', states_poll_bias_scaler, '__', direction_flag, '.csv')
-)
+Show 80% credible intervals and probabilities (like fivethirtyeight)
 
+``` r
 election_summary %>% 
   rowwise() %>% 
   mutate(lower = dem.lower,
@@ -978,11 +966,11 @@ election_summary %>%
   scale_x_continuous(limits = c(.1, .8), breaks = c(.25, .375, .5, .625, .75), labels = c('+50', '+25', '0', '+25', '+50'))
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
-## other parameters
+## check other terms
 
-First, let’s look at the polling bias
+First, let’s look at the polling bias for each state
 
 ``` r
 polling_bias_states <-
@@ -1006,14 +994,17 @@ df_polling_bias_states %>%
     scale_y_continuous()
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 ``` r
-# rm(mu_pollster)
+# save memory
+rm(polling_bias_states)
+rm(df_polling_bias_states)
 ```
 
+also pollster bias
+
 ``` r
-# quit(save="ask")
 mu_pollster <-
   rstan::extract(out, pars = "mu_pollster")[[1]]
 
@@ -1034,11 +1025,15 @@ df_mu_pollster %>%
     scale_y_continuous()
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ``` r
+# save memory
 rm(mu_pollster)
+rm(df_mu_pollster)
 ```
+
+Also different voter types
 
 ``` r
 mu_population <-
@@ -1061,11 +1056,15 @@ df_mu_population %>%
     scale_y_continuous()
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
 
 ``` r
+# save memory
 rm(mu_population)
+rm(df_mu_population)
 ```
+
+The effects of different polling methods
 
 ``` r
 mu_methods <-
@@ -1088,11 +1087,15 @@ df_mu_methods %>%
     scale_y_continuous()
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
 
 ``` r
+# save memory
 rm(mu_methods)
+rm(df_mu_methods)
 ```
+
+Each individual poll’s nosie
 
 ``` r
 poll_noise <-
@@ -1118,34 +1121,16 @@ df_poll_noise %>%
     scale_y_continuous()
 ```
 
-![](forecast-governors_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+![](forecast-governors_files/figure-gfm/unnamed-chunk-28-1.png)<!-- -->
 
 ``` r
+# save memory
 rm(poll_noise)
+rm(df_poll_noise)
 ```
 
 ``` r
-polling_bias_states <-
-  rstan::extract(out, pars = "polling_bias_states")[[1]]
-
-dim(polling_bias_states) <- nX * m5_data$N_states
-
-tibble(
-         posterior = polling_bias_states,
-         .draw = rep(1:nX, times =  m5_data$N_states),
-         id = paste0('state_', rep(1:m5_data$N_states, each = nX))
-       ) %>% 
-    group_by(id) %>% 
-    ggplot(aes(x = id, y = posterior)) +
-    stat_interval() +
-    geom_hline(yintercept=c(0, -1, 1), linetype = 'dotted') + 
-    scale_color_brewer() +
-    scale_y_continuous()
-```
-
-![](forecast-governors_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
-
-``` r
+# This was used and then found incumbent effect does not matter
 mu_incumbent_party <-
   rstan::extract(out, pars = "mu_incumbent_party")[[1]]
 
@@ -1172,7 +1157,7 @@ write.csv(election_day_prediction %>% select(.draw, dem, rep, day, state), file 
 ```
 
 The following code is used only for generating data for the website. We
-omit explanations for now.
+omit explanations.
 
 ## posterior samples
 
