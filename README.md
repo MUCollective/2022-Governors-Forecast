@@ -9,10 +9,11 @@ We use polling data from [Fivethirtyeight](https://projects.fivethirtyeight.com/
 
 We organize these in the folder `forecasts` as follows:
 
-  `forecast-governors.Rmd`: the main source file
-  `forecast-governors.md`: the github version of the main source file
-  `forecast-governors_files`: the files needed to render the md on Github
-  `model-output` folder: it contains the election day prediction every time we run the model
-  `stan` folder: it holds the stan source file and the compiled stan model
-  `data` folder: it holds two other datasets we use: cook report and Fivethirtyeight's prediction on Sept 1
+  `forecast-governors.Rmd`: the main source file  
+  `forecast-governors.md`: the github version of the main source file  
+  `forecast-governors_files`: the files needed to render the md on Github  
+  `model-output` folder: it contains the election day prediction every time we run the model  
+  `stan` folder: it holds the stan source file and the compiled stan model  
+  `data` folder: it holds two other datasets we use: cook report and Fivethirtyeight's prediction on Sep 1  
+ 
   
