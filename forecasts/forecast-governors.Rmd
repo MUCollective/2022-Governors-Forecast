@@ -56,6 +56,17 @@ d_fte <- read_csv('data/fivethirtyeight-9.1.csv') %>% select(state, rep.name, de
 dir.create(path)
 
 ```
+```{r}
+
+library(usdata)
+
+d <- read.csv('../forecasts/data/fivethirtyeight-9.1.csv')
+
+d <- d %>% select(state, rep.name, dem.name) %>%
+  mutate(state = abbr2state(state))
+      
+write_file(toJSON(d), file = '../../EVA-midterm/govername_qualtrics.json')
+```
 
 # Theme set
 
@@ -86,7 +97,7 @@ today <- Sys.Date()
 current_polls <- read_csv('https://projects.fivethirtyeight.com/polls/data/governor_polls.csv')
 
 # Ratings from Cook report
-current_status <- read_xlsx('./data/June_29.xlsx', sheet = 'June_29_states') %>% 
+current_status <- read_xlsx('./data/June_29.xlsx', sheet =                                                          'June_29_states') %>% 
   rename(state_full = State) %>% 
   filter(state_full != 'Northern Mariana Islands') %>% 
   mutate(state = state2abbr(state_full))
@@ -480,11 +491,11 @@ pulled_last_dem_logit <- logit(df_polls_two_party %>%
 sigma_scaler = 0.04 
 sigma_scaler_pollster = 0.06
 
-state_day_sigma_scaler = 0.016
+state_day_sigma_scaler = 0.0165
 # 0.0165 from the economist's 2020 presidential election
 # 0.032 if we want to double it
 
-states_poll_bias_scaler = .076
+states_poll_bias_scaler = .08
 # .076 result in +- in total 0.07585401
 # 0.15 if we want to double it
 # 0.2 if we want to make 20
@@ -1037,8 +1048,17 @@ head(full_state_summary)
 
 ```{r fig.height=7, fig.width=10, include=FALSE}
 
+ranks <-  round(ppoints(100, a = .8) * N_pdraws)
+
+# check if there is NA
+if(length(ranks) != length(unique(ranks))) quit(save="ask") 
+if(length(ranks) != 100) quit(save="ask") 
+
 draws <- posterior_draws_election_day %>%
-  filter(((nrank + step / 2) %% step) == 0)
+  filter(nrank %in% ranks)
+
+# quantile one party vote share
+# p point quantile(x, ppoints(100, a = …))
 
 
 draws %>%
