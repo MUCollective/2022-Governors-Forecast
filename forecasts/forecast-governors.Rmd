@@ -495,7 +495,7 @@ state_day_sigma_scaler = 0.0165
 # 0.0165 from the economist's 2020 presidential election
 # 0.032 if we want to double it
 
-states_poll_bias_scaler = .08
+states_poll_bias_scaler = .076
 # .076 result in +- in total 0.07585401
 # 0.15 if we want to double it
 # 0.2 if we want to make 20
@@ -1048,7 +1048,7 @@ head(full_state_summary)
 
 ```{r fig.height=7, fig.width=10, include=FALSE}
 
-ranks <-  round(ppoints(100, a = .8) * N_pdraws)
+ranks <-  round(ppoints(100, a = .5) * N_pdraws)
 
 # check if there is NA
 if(length(ranks) != length(unique(ranks))) quit(save="ask") 
