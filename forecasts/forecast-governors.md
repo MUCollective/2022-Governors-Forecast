@@ -1,6 +1,6 @@
 Forecasting the 2022 Governor Elections
 ================
-October 23, 2022
+October 24, 2022
 
 # Settings
 
@@ -88,7 +88,7 @@ today <- Sys.Date()
 current_polls <- read_csv('https://projects.fivethirtyeight.com/polls/data/governor_polls.csv')
 ```
 
-    ## Rows: 2298 Columns: 42
+    ## Rows: 2315 Columns: 42
     ## ── Column specification ────────────────────────────────────────────────────────
     ## Delimiter: ","
     ## chr (23): pollster, sponsors, display_name, pollster_rating_name, fte_grade,...
@@ -113,14 +113,14 @@ head(current_polls)
 ```
 
     ## # A tibble: 6 × 42
-    ##   poll_id pollster_id pollster         sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>    <chr>       
-    ## 1   81204        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 2   81204        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 3   81188        1497 co/efficient              NA <NA>     co/efficient
-    ## 4   81188        1497 co/efficient              NA <NA>     co/efficient
-    ## 5   81195        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 6   81195        1347 Cygnal Political          NA <NA>     Cygnal      
+    ##   poll_id pollster_id pollster         sponsor_ids sponsors         display_name
+    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>            <chr>       
+    ## 1   81204        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 2   81204        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 3   81188        1497 co/efficient              NA <NA>             co/efficient
+    ## 4   81188        1497 co/efficient              NA <NA>             co/efficient
+    ## 5   81209        1250 Trafalgar Group         1857 Michigan News S… Trafalgar G…
+    ## 6   81209        1250 Trafalgar Group         1857 Michigan News S… Trafalgar G…
     ## # … with 36 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -165,14 +165,14 @@ head(current_polls %>%
 ```
 
     ## # A tibble: 6 × 43
-    ##   poll_id pollster_id pollster         sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>    <chr>       
-    ## 1   81204        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 2   81204        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 3   81188        1497 co/efficient              NA <NA>     co/efficient
-    ## 4   81188        1497 co/efficient              NA <NA>     co/efficient
-    ## 5   81195        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 6   81195        1347 Cygnal Political          NA <NA>     Cygnal      
+    ##   poll_id pollster_id pollster         sponsor_ids sponsors         display_name
+    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>            <chr>       
+    ## 1   81204        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 2   81204        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 3   81188        1497 co/efficient              NA <NA>             co/efficient
+    ## 4   81188        1497 co/efficient              NA <NA>             co/efficient
+    ## 5   81209        1250 Trafalgar Group         1857 Michigan News S… Trafalgar G…
+    ## 6   81209        1250 Trafalgar Group         1857 Michigan News S… Trafalgar G…
     ## # … with 37 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -241,12 +241,12 @@ head(df_polls_1, n = 10)
     ##  2 659 … OH    DeWine Mike DeWine    REP          1547 0.546   81204        1347
     ##  3 660 … AZ    Hobbs  Katie Hobbs    DEM          1111 0.453   81188        1497
     ##  4 660 … AZ    Lake   Kari Lake      REP          1111 0.486   81188        1497
-    ##  5 658 … MI    Whitm… Gretchen Whit… DEM          1904 0.498   81195        1347
-    ##  6 658 … MI    Dixon  Tudor M. Dixon REP          1904 0.435   81195        1347
-    ##  7 659 … NV    Sisol… Steve Sisolak  DEM           550 0.428   81203         235
-    ##  8 659 … NV    Lomba… Joe Lombardo   REP           550 0.485   81203         235
-    ##  9 659 … NV    Davis  Brandon Davis  LIB           550 0.041   81203         235
-    ## 10 658 … PA    Shapi… Josh Shapiro   DEM           500 0.5     81182        1302
+    ##  5 658 … MI    Whitm… Gretchen Whit… DEM          1079 0.484   81209        1250
+    ##  6 658 … MI    Dixon  Tudor M. Dixon REP          1079 0.479   81209        1250
+    ##  7 658 … MI    Buzuma Mary Buzuma    LIB          1079 0.015   81209        1250
+    ##  8 658 … MI    Whitm… Gretchen Whit… DEM          1904 0.498   81195        1347
+    ##  9 658 … MI    Dixon  Tudor M. Dixon REP          1904 0.435   81195        1347
+    ## 10 659 … NV    Sisol… Steve Sisolak  DEM           550 0.428   81203         235
     ## # … with 10 more variables: question_id <dbl>, pollster <chr>,
     ## #   display_name <chr>, fte_grade <chr>, methodology <chr>, population <chr>,
     ## #   state_full <chr>, start_date <date>, end_date <date>, url <chr>
@@ -792,27 +792,27 @@ if (FLAG_RUN_MODEL) {
     ## Chain 3 Iteration:    1 / 10000 [  0%]  (Warmup) 
     ## Chain 4 Iteration:    1 / 10000 [  0%]  (Warmup) 
     ## Chain 1 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
-    ## Chain 2 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 3 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
+    ## Chain 2 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 4 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 1 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
-    ## Chain 2 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 3 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
+    ## Chain 2 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 4 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 1 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 2 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 3 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 2 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 4 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 1 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 2 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 3 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 2 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 4 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 1 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 1 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 2 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 2 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
     ## Chain 3 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 3 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 2 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 2 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
     ## Chain 4 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 4 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
     ## Chain 1 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
@@ -832,19 +832,19 @@ if (FLAG_RUN_MODEL) {
     ## Chain 2 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 4 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 1 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 1 finished in 2385.8 seconds.
-    ## Chain 3 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 3 finished in 2395.6 seconds.
+    ## Chain 1 finished in 2340.1 seconds.
     ## Chain 2 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 2 finished in 2402.6 seconds.
+    ## Chain 3 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 2 finished in 2342.6 seconds.
+    ## Chain 3 finished in 2342.6 seconds.
     ## Chain 4 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 4 finished in 2406.1 seconds.
+    ## Chain 4 finished in 2359.9 seconds.
     ## 
     ## All 4 chains finished successfully.
-    ## Mean chain execution time: 2397.5 seconds.
-    ## Total execution time: 2406.3 seconds.
+    ## Mean chain execution time: 2346.3 seconds.
+    ## Total execution time: 2360.0 seconds.
     ## 
-    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpCrtw73/m5-202210231403-1-9038fb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpCrtw73/m5-202210231403-2-9038fb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpCrtw73/m5-202210231403-3-9038fb.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpCrtw73/m5-202210231403-4-9038fb.csv
+    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpOghFtA/m5-202210240956-1-90cc69.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpOghFtA/m5-202210240956-2-90cc69.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpOghFtA/m5-202210240956-3-90cc69.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpOghFtA/m5-202210240956-4-90cc69.csv
     ## 
     ## Checking sampler transitions treedepth.
     ## Treedepth satisfactory for all transitions.
@@ -861,9 +861,9 @@ if (FLAG_RUN_MODEL) {
     ## 
     ## Processing complete, no problems detected.
 
-    ##             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
-    ## Ncells   2256673  120.6    3799440   203.0         NA    3799440   203.0
-    ## Vcells 847554727 6466.4 1575817888 12022.6  1.024e+12 1575817456 12022.6
+    ##             used   (Mb) gc trigger  (Mb) limit (Mb)   max used  (Mb)
+    ## Ncells   2256813  120.6    3800514   203         NA    3800514   203
+    ## Vcells 847857296 6468.7 1576524041 12028  1.024e+12 1576523820 12028
 
 ## posterior prediction
 
@@ -943,15 +943,15 @@ election_day_prediction %>%
     ##    state   dem dem.lower dem.upper   rep rep.lower rep.upper .width .point
     ##    <chr> <dbl>     <dbl>     <dbl> <dbl>     <dbl>     <dbl>  <dbl> <chr> 
     ##  1 AR    0.418     0.355     0.482 0.582     0.518     0.645   0.95 mean  
-    ##  2 AZ    0.513     0.456     0.569 0.487     0.431     0.544   0.95 mean  
-    ##  3 CA    0.616     0.553     0.678 0.384     0.322     0.447   0.95 mean  
-    ##  4 CO    0.590     0.530     0.648 0.410     0.352     0.470   0.95 mean  
-    ##  5 CT    0.568     0.505     0.629 0.432     0.371     0.495   0.95 mean  
+    ##  2 AZ    0.513     0.456     0.570 0.487     0.430     0.544   0.95 mean  
+    ##  3 CA    0.617     0.555     0.676 0.383     0.324     0.445   0.95 mean  
+    ##  4 CO    0.590     0.530     0.646 0.410     0.354     0.470   0.95 mean  
+    ##  5 CT    0.568     0.505     0.631 0.432     0.369     0.495   0.95 mean  
     ##  6 FL    0.461     0.400     0.521 0.539     0.479     0.600   0.95 mean  
-    ##  7 GA    0.477     0.419     0.535 0.523     0.465     0.581   0.95 mean  
-    ##  8 IA    0.416     0.358     0.477 0.584     0.523     0.642   0.95 mean  
-    ##  9 IL    0.578     0.517     0.639 0.422     0.361     0.483   0.95 mean  
-    ## 10 KS    0.527     0.452     0.603 0.473     0.397     0.548   0.95 mean  
+    ##  7 GA    0.476     0.419     0.533 0.524     0.467     0.581   0.95 mean  
+    ##  8 IA    0.416     0.357     0.477 0.584     0.523     0.643   0.95 mean  
+    ##  9 IL    0.578     0.516     0.638 0.422     0.362     0.484   0.95 mean  
+    ## 10 KS    0.527     0.450     0.602 0.473     0.398     0.550   0.95 mean  
     ## # … with 20 more rows, and 1 more variable: .interval <chr>
 
 ``` r

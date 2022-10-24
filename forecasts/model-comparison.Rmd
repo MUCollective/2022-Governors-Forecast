@@ -1,0 +1,77 @@
+---
+title: "Model comparison within ours and to 538"
+output: 
+  html_document: 
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: no
+    df_print: kable
+    highlight: pygments
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r}
+library(tidyverse, quietly = TRUE)
+library(ggdist)
+```
+
+
+```{r}
+ 
+ d1 <- read_csv('model_comparison/0.01655__0.076__-1.csv') %>% mutate(state_sigma = 0.076, direction = 'backward')
+ d2 <- read_csv('model_comparison/0.01655__0.076__1.csv') %>% mutate(state_sigma = 0.076, direction = 'forward')
+ d3 <- read_csv('model_comparison/0.01655__0.1__-1.csv') %>% mutate(state_sigma = 0.1, direction = 'backward')
+ d4 <- read_csv('model_comparison/0.01655__0.1__1.csv') %>% mutate(state_sigma = 0.1, direction = 'forward')
+ d5 <- read_csv('model_comparison/0.01655__0.15__-1.csv') %>% mutate(state_sigma = 0.15, direction = 'backward')
+ d6 <- read_csv('model_comparison/0.01655__0.15__1.csv') %>% mutate(state_sigma = 0.15, direction = 'forward')
+ 
+ d_fte <- read_csv('data/fivethirtyeight-9.1 - Sheet1.csv') %>% 
+   rowwise() %>% 
+   mutate(mean = mean / 200 + .5,
+          lower = .lower / 200 + .5, 
+          lower.end = max(.5,.lower/ 200 + .5)   ,
+          upper = .upper / 200  + .5,
+          upper.start = min(.5, .upper/ 200 + .5) ) %>% 
+   filter(state %in% unique(d1$state))
+   
+  d_fte
+```
+
+
+```{r fig.height=13, fig.width=17}
+  rbind(
+    d1, d2, d3, d4, d5, d6
+  ) %>% 
+   filter(.width == .8) %>% 
+   rowwise() %>% 
+   mutate(lower = dem.lower,
+         lower.end = max(dem.lower, min(.5, dem.upper)),
+         upper= dem.upper,
+         upper.start = min(dem.upper, max(.5, dem.lower))) %>%
+  ggplot() +
+     geom_segment(aes(x = lower, xend = lower.end, 
+                      y = interaction(state_sigma, direction), 
+                      yend = interaction(state_sigma, direction)), 
+                      size = 1, color = 'salmon') +
+     geom_segment(aes(x = upper.start, xend = upper, 
+                      y = interaction(state_sigma, direction), 
+                      yend = interaction(state_sigma, direction)), 
+                  size = 1, color = 'steelblue3') +
+     geom_segment(d_fte, mapping = aes(x = lower, xend = lower.end, 
+                      y = '538', 
+                      yend = '538'), 
+                  size = 1, color = 'darkred') +
+     geom_segment(d_fte, mapping = aes(x = upper.start, xend = upper, 
+                      y = '538', 
+                      yend = '538'), 
+                  size = 1, color = 'steelblue4') +
+     geom_point(d_fte, mapping = aes(x = mean, y ='538'), color = 'gray50', size = 1) + 
+     geom_point(aes(x = dem, y = interaction(state_sigma, direction)), color = 'gray50', size = 1) + 
+     scale_x_continuous(limits=c(.1, .75)) + 
+     facet_wrap(state ~ ., ncol = 4, scales = 'free')
+
+```
+
+
+
