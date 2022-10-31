@@ -14,6 +14,16 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 ```{r}
 library(tidyverse, quietly = TRUE)
 library(ggdist)
+library(jsonlite, quietly = TRUE)
+```
+
+
+```{r}
+
+d <- read_csv('data/fivethirtyeight-9.1.csv')
+df <- as.data.frame(d %>% dplyr::select(c('state', 'dem.name', 'rep.name')) %>% mutate_all(as.character))
+write_file(x = toJSON(df), file = '../../EVA-midterm/midterm-web/governor_names.json')
+
 ```
 
 
