@@ -1,6 +1,6 @@
 Forecasting the 2022 Governor Elections
 ================
-October 28, 2022
+November 01, 2022
 
 # Settings
 
@@ -88,7 +88,7 @@ today <- Sys.Date()
 current_polls <- read_csv('https://projects.fivethirtyeight.com/polls/data/governor_polls.csv')
 ```
 
-    ## Rows: 2481 Columns: 42
+    ## Rows: 2588 Columns: 42
     ## ── Column specification ────────────────────────────────────────────────────────
     ## Delimiter: ","
     ## chr (23): pollster, sponsors, display_name, pollster_rating_name, fte_grade,...
@@ -113,14 +113,14 @@ head(current_polls)
 ```
 
     ## # A tibble: 6 × 42
-    ##   poll_id pollster_id pollster         sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>    <chr>       
-    ## 1   81327        1642 Wick                      NA <NA>     Wick        
-    ## 2   81327        1642 Wick                      NA <NA>     Wick        
-    ## 3   81333        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 4   81333        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 5   81317        1741 ActiVote                  NA <NA>     ActiVote    
-    ## 6   81317        1741 ActiVote                  NA <NA>     ActiVote    
+    ##   poll_id pollster_id pollster         sponsor_ids sponsors         display_name
+    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>            <chr>       
+    ## 1   81402        1250 Trafalgar Group           NA <NA>             Trafalgar G…
+    ## 2   81402        1250 Trafalgar Group           NA <NA>             Trafalgar G…
+    ## 3   81408        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 4   81408        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 5   81400         235 InsiderAdvantage        1457 Center for Amer… InsiderAdva…
+    ## 6   81400         235 InsiderAdvantage        1457 Center for Amer… InsiderAdva…
     ## # … with 36 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -165,14 +165,14 @@ head(current_polls %>%
 ```
 
     ## # A tibble: 6 × 43
-    ##   poll_id pollster_id pollster         sponsor_ids sponsors display_name
-    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>    <chr>       
-    ## 1   81327        1642 Wick                      NA <NA>     Wick        
-    ## 2   81327        1642 Wick                      NA <NA>     Wick        
-    ## 3   81333        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 4   81333        1347 Cygnal Political          NA <NA>     Cygnal      
-    ## 5   81317        1741 ActiVote                  NA <NA>     ActiVote    
-    ## 6   81317        1741 ActiVote                  NA <NA>     ActiVote    
+    ##   poll_id pollster_id pollster         sponsor_ids sponsors         display_name
+    ##     <dbl>       <dbl> <chr>                  <dbl> <chr>            <chr>       
+    ## 1   81402        1250 Trafalgar Group           NA <NA>             Trafalgar G…
+    ## 2   81402        1250 Trafalgar Group           NA <NA>             Trafalgar G…
+    ## 3   81408        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 4   81408        1347 Cygnal Political          NA <NA>             Cygnal      
+    ## 5   81400         235 InsiderAdvantage        1457 Center for Amer… InsiderAdva…
+    ## 6   81400         235 InsiderAdvantage        1457 Center for Amer… InsiderAdva…
     ## # … with 37 more variables: pollster_rating_id <dbl>,
     ## #   pollster_rating_name <chr>, fte_grade <chr>, methodology <chr>,
     ## #   state <chr>, start_date <chr>, end_date <chr>, sponsor_candidate_id <dbl>,
@@ -237,16 +237,16 @@ head(df_polls_1, n = 10)
     ## # A tibble: 10 × 19
     ##    date  state answer candidate_name party sample_size   pct poll_id pollster_id
     ##    <drt> <chr> <chr>  <chr>          <chr>       <dbl> <dbl>   <dbl>       <dbl>
-    ##  1 666 … PA    Shapi… Josh Shapiro   DEM          1000 0.492   81327        1642
-    ##  2 666 … PA    Mastr… Douglas V. Ma… REP          1000 0.433   81327        1642
-    ##  3 664 … MI    Whitm… Gretchen Whit… DEM          1822 0.505   81333        1347
-    ##  4 664 … MI    Dixon  Tudor M. Dixon REP          1822 0.443   81333        1347
-    ##  5 621 … CA    Newsom Gavin Newsom   DEM           200 0.61    81317        1741
-    ##  6 621 … CA    Dahle  Brian Dahle    REP           200 0.39    81317        1741
-    ##  7 665 … PA    Shapi… Josh Shapiro   DEM           750 0.502   81313         235
-    ##  8 665 … PA    Mastr… Douglas V. Ma… REP           750 0.418   81313         235
-    ##  9 665 … PA    Hacke… Matt Hackenbu… LIB           750 0.028   81313         235
-    ## 10 664 … NH    Sherm… Tom Sherman    DEM          1098 0.34    81324        1497
+    ##  1 668 … NY    Hochul Kathy C. Hoch… DEM          1198 0.476   81402        1250
+    ##  2 668 … NY    Zeldin Lee M. Zeldin  REP          1198 0.484   81402        1250
+    ##  3 668 … MI    Whitm… Gretchen Whit… DEM          1584 0.509   81408        1347
+    ##  4 668 … MI    Dixon  Tudor M. Dixon REP          1584 0.445   81408        1347
+    ##  5 669 … MI    Whitm… Gretchen Whit… DEM           550 0.446   81400         235
+    ##  6 669 … MI    Dixon  Tudor M. Dixon REP           550 0.448   81400         235
+    ##  7 669 … MI    Buzuma Mary Buzuma    LIB           550 0.02    81400         235
+    ##  8 669 … MI    Hogan  Kevin Hogan    GRE           550 0.024   81400         235
+    ##  9 668 … AZ    Hobbs  Katie Hobbs    DEM           985 0.423   81401        1708
+    ## 10 668 … AZ    Lake   Kari Lake      REP           985 0.534   81401        1708
     ## # … with 10 more variables: question_id <dbl>, pollster <chr>,
     ## #   display_name <chr>, fte_grade <chr>, methodology <chr>, population <chr>,
     ## #   state_full <chr>, start_date <date>, end_date <date>, url <chr>
@@ -256,7 +256,7 @@ head(df_polls_1, n = 10)
 length(unique(df_polls_1$state))
 ```
 
-    ## [1] 32
+    ## [1] 34
 
 ``` r
 # transform cook report to get incumbency and the last election dem pct
@@ -405,6 +405,14 @@ df_polls_two_party %>%
     ## the group aesthetic?
     ## geom_path: Each group consists of only one observation. Do you need to adjust
     ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
+    ## geom_path: Each group consists of only one observation. Do you need to adjust
+    ## the group aesthetic?
 
 ![](forecast-governors_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
@@ -416,20 +424,20 @@ df_polls_two_party %>%
   summarise(n())
 ```
 
-    ## # A tibble: 30 × 2
+    ## # A tibble: 32 × 2
     ##    state `n()`
     ##    <chr> <int>
-    ##  1 AR        5
-    ##  2 AZ       43
-    ##  3 CA       11
-    ##  4 CO       20
-    ##  5 CT       16
-    ##  6 FL       84
-    ##  7 GA       63
-    ##  8 IA        9
-    ##  9 IL       20
-    ## 10 KS        6
-    ## # … with 20 more rows
+    ##  1 AL        1
+    ##  2 AR        5
+    ##  3 AZ       49
+    ##  4 CA       11
+    ##  5 CO       22
+    ##  6 CT       16
+    ##  7 FL       84
+    ##  8 GA       66
+    ##  9 IA       10
+    ## 10 IL       20
+    ## # … with 22 more rows
 
 # Modeling preparation
 
@@ -787,60 +795,60 @@ if (FLAG_RUN_MODEL) {
     ## Chain 2 Iteration:    1 / 10000 [  0%]  (Warmup) 
     ## Chain 3 Iteration:    1 / 10000 [  0%]  (Warmup) 
     ## Chain 4 Iteration:    1 / 10000 [  0%]  (Warmup) 
-    ## Chain 4 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 2 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 1 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 3 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
+    ## Chain 4 Iteration: 1000 / 10000 [ 10%]  (Warmup) 
     ## Chain 2 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
-    ## Chain 4 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 1 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 3 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
-    ## Chain 4 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 2 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 1 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 4 Iteration: 2000 / 10000 [ 20%]  (Warmup) 
     ## Chain 3 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
-    ## Chain 4 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 2 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 1 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 1 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 2 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
+    ## Chain 4 Iteration: 3000 / 10000 [ 30%]  (Warmup) 
     ## Chain 3 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
-    ## Chain 4 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 4 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 2 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 2 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 1 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
-    ## Chain 1 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 1 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 2 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
+    ## Chain 4 Iteration: 4000 / 10000 [ 40%]  (Warmup) 
     ## Chain 3 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
     ## Chain 3 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
-    ## Chain 4 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
+    ## Chain 1 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 1 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 2 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 2 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 4 Iteration: 5000 / 10000 [ 50%]  (Warmup) 
+    ## Chain 4 Iteration: 5001 / 10000 [ 50%]  (Sampling) 
+    ## Chain 3 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
     ## Chain 2 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
     ## Chain 1 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
-    ## Chain 3 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
-    ## Chain 4 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
+    ## Chain 4 Iteration: 6000 / 10000 [ 60%]  (Sampling) 
+    ## Chain 3 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
     ## Chain 2 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
     ## Chain 1 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
-    ## Chain 3 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
-    ## Chain 4 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
+    ## Chain 4 Iteration: 7000 / 10000 [ 70%]  (Sampling) 
+    ## Chain 3 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
     ## Chain 2 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
     ## Chain 1 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
-    ## Chain 3 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
-    ## Chain 4 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
+    ## Chain 4 Iteration: 8000 / 10000 [ 80%]  (Sampling) 
+    ## Chain 3 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 2 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 1 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
-    ## Chain 3 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
-    ## Chain 4 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 4 finished in 2177.6 seconds.
-    ## Chain 2 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 2 finished in 2191.6 seconds.
-    ## Chain 1 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 1 finished in 2192.2 seconds.
+    ## Chain 4 Iteration: 9000 / 10000 [ 90%]  (Sampling) 
     ## Chain 3 Iteration: 10000 / 10000 [100%]  (Sampling) 
-    ## Chain 3 finished in 2202.8 seconds.
+    ## Chain 3 finished in 2211.7 seconds.
+    ## Chain 2 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 2 finished in 2216.7 seconds.
+    ## Chain 1 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 1 finished in 2221.9 seconds.
+    ## Chain 4 Iteration: 10000 / 10000 [100%]  (Sampling) 
+    ## Chain 4 finished in 2230.1 seconds.
     ## 
     ## All 4 chains finished successfully.
-    ## Mean chain execution time: 2191.0 seconds.
-    ## Total execution time: 2203.1 seconds.
+    ## Mean chain execution time: 2220.1 seconds.
+    ## Total execution time: 2230.2 seconds.
     ## 
-    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpxXrotY/m5-202210281026-1-8fe5bc.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpxXrotY/m5-202210281026-2-8fe5bc.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpxXrotY/m5-202210281026-3-8fe5bc.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpxXrotY/m5-202210281026-4-8fe5bc.csv
+    ## Processing csv files: /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpR79Lwx/m5-202211011321-1-90d94e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpR79Lwx/m5-202211011321-2-90d94e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpR79Lwx/m5-202211011321-3-90d94e.csv, /var/folders/jp/wsnh83jx57n8xfxhw1wwtcgh0000gn/T/RtmpR79Lwx/m5-202211011321-4-90d94e.csv
     ## 
     ## Checking sampler transitions treedepth.
     ## Treedepth satisfactory for all transitions.
@@ -858,8 +866,8 @@ if (FLAG_RUN_MODEL) {
     ## Processing complete, no problems detected.
 
     ##             used   (Mb) gc trigger    (Mb) limit (Mb)   max used    (Mb)
-    ## Ncells   2257917  120.6    3819228   204.0         NA    3819228   204.0
-    ## Vcells 850461027 6488.6 1731767525 13212.4  1.024e+12 1642021940 12527.7
+    ## Ncells   2274934  121.5    3837868   205.0         NA    3837868   205.0
+    ## Vcells 906559826 6916.6 1706014698 13015.9  1.024e+12 1706014498 13015.9
 
 ## posterior prediction
 
@@ -935,20 +943,20 @@ election_day_prediction %>%
   mean_qi(dem, rep, .width = .95) 
 ```
 
-    ## # A tibble: 30 × 10
+    ## # A tibble: 32 × 10
     ##    state   dem dem.lower dem.upper   rep rep.lower rep.upper .width .point
     ##    <chr> <dbl>     <dbl>     <dbl> <dbl>     <dbl>     <dbl>  <dbl> <chr> 
-    ##  1 AR    0.418     0.355     0.483 0.582     0.517     0.645   0.95 mean  
-    ##  2 AZ    0.502     0.446     0.557 0.498     0.443     0.554   0.95 mean  
-    ##  3 CA    0.613     0.554     0.669 0.387     0.331     0.446   0.95 mean  
-    ##  4 CO    0.589     0.530     0.647 0.411     0.353     0.470   0.95 mean  
-    ##  5 CT    0.573     0.519     0.626 0.427     0.374     0.481   0.95 mean  
-    ##  6 FL    0.460     0.405     0.515 0.540     0.485     0.595   0.95 mean  
-    ##  7 GA    0.483     0.430     0.537 0.517     0.463     0.570   0.95 mean  
-    ##  8 IA    0.423     0.367     0.480 0.577     0.520     0.633   0.95 mean  
-    ##  9 IL    0.573     0.517     0.628 0.427     0.372     0.483   0.95 mean  
-    ## 10 KS    0.529     0.452     0.604 0.471     0.396     0.548   0.95 mean  
-    ## # … with 20 more rows, and 1 more variable: .interval <chr>
+    ##  1 AL    0.319     0.262     0.380 0.681     0.620     0.738   0.95 mean  
+    ##  2 AR    0.418     0.355     0.483 0.582     0.517     0.645   0.95 mean  
+    ##  3 AZ    0.497     0.446     0.548 0.503     0.452     0.554   0.95 mean  
+    ##  4 CA    0.612     0.552     0.669 0.388     0.331     0.448   0.95 mean  
+    ##  5 CO    0.582     0.532     0.633 0.418     0.367     0.468   0.95 mean  
+    ##  6 CT    0.572     0.519     0.625 0.428     0.375     0.481   0.95 mean  
+    ##  7 FL    0.459     0.406     0.515 0.541     0.485     0.594   0.95 mean  
+    ##  8 GA    0.484     0.432     0.537 0.516     0.463     0.568   0.95 mean  
+    ##  9 IA    0.422     0.369     0.476 0.578     0.524     0.631   0.95 mean  
+    ## 10 IL    0.573     0.518     0.627 0.427     0.373     0.482   0.95 mean  
+    ## # … with 22 more rows, and 1 more variable: .interval <chr>
 
 ``` r
 election_summary <- 
