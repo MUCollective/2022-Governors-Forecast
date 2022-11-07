@@ -218,7 +218,7 @@ A poll may have multiple questions. We assume that each question is a small poll
 ```{r}
 df_polls_two_party <- df_polls %>% 
   # These questions ask IND
-  filter(question_id != 148891 & question_id != 162710) %>%
+  filter(question_id != 148891 & question_id != 162710 & question_id != 165044) %>%
   filter(state != 'AK') %>% 
   group_by(question_id, party) %>% 
   summarise(grouped_pct = sum(pct), 
